@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>基本功能测试</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        .button {
+            padding: 10px 20px;
+            margin: 5px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        .button:hover {
+            background-color: #45a049;
+        }
+        
+        .log-area {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        
+        .log-entry {
+            margin-bottom: 5px;
+            padding: 2px 0;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .log-time {
+            color: #999;
+            margin-right: 10px;
+        }
+        
+        .log-info {
+            color: #333;
+        }
+        
+        .log-success {
+            color: #4CAF50;
+        }
+        
+        .log-error {
+            color: #f44336;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>基本功能测试</h1>
+        
+        <button class="button" onclick="testButton1()">测试按钮 1</button>
+        <button class="button" onclick="testButton2()">测试按钮 2</button>
+        <button class="button" onclick="testButton3()">测试按钮 3</button>
+        
+        <div class="log-area" id="log-area"></div>
+    </div>
+    
+    <script>
+        // 全局变量
+        let logArea;
+        
+        // 页面加载完成后初始化
+        window.addEventListener('load', function() {
+            console.log('页面加载完成');
+            logArea = document.getElementById('log-area');
+            log('页面加载完成，开始测试', 'info');
+        });
+        
+        // 日志函数
+        function log(message, type = 'info') {
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString();
+            
+            const logEntry = document.createElement('div');
+            logEntry.className = `log-entry log-${type}`;
+            logEntry.innerHTML = `<span class="log-time">${timeStr}</span>${message}`;
+            
+            if (logArea) {
+                logArea.appendChild(logEntry);
+                logArea.scrollTop = logArea.scrollHeight;
+            }
+            
+            console.log(`${timeStr} [${type.toUpperCase()}] ${message}`);
+        }
+        
+        // 测试按钮 1
+        function testButton1() {
+            console.log('测试按钮 1 被点击');
+            log('测试按钮 1 被点击', 'success');
+        }
+        
+        // 测试按钮 2
+        function testButton2() {
+            console.log('测试按钮 2 被点击');
+            log('测试按钮 2 被点击', 'success');
+        }
+        
+        // 测试按钮 3
+        function testButton3() {
+            console.log('测试按钮 3 被点击');
+            log('测试按钮 3 被点击', 'success');
+        }
+    </script>
+</body>
+</html>

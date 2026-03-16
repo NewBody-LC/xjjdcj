@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>网页嵌入器 - 简化版</title>
+    <style>
+        /* 重置默认样式 */
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            height: 100vh;
+            font-family: Arial, sans-serif;
+        }
+        
+        /* 主容器布局 */
+        .main-container {
+            display: flex;
+            height: 100vh;
+        }
+        
+        /* 左侧webview区域 */
+        .webview-container {
+            flex: 1;
+            height: 100vh;
+            position: relative;
+        }
+        
+        /* webview样式 */
+        .webview-container webview {
+            width: 100%;
+            height: 100%;
+        }
+        
+        /* 右侧功能区 */
+        .sidebar {
+            width: 250px;
+            height: 100vh;
+            background-color: #f0f0f0;
+            border-left: 1px solid #ddd;
+            padding: 20px;
+            overflow-y: auto;
+            box-sizing: border-box;
+        }
+        
+        /* 功能区标题 */
+        .sidebar h2 {
+            margin-top: 0;
+            color: #333;
+            font-size: 18px;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 10px;
+        }
+        
+        /* 功能按钮容器 */
+        .button-container {
+            margin-top: 20px;
+        }
+        
+        /* 功能按钮样式 */
+        .function-button {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            transition: background-color 0.3s;
+        }
+        
+        /* 按钮悬停效果 */
+        .function-button:hover {
+            background-color: #45a049;
+        }
+        
+        /* 日志区域 */
+        .log-area {
+            margin-top: 30px;
+            height: 300px;
+            background-color: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+        
+        /* 日志标题 */
+        .log-area h3 {
+            margin-top: 0;
+            margin-bottom: 10px;
+            color: #333;
+            font-size: 14px;
+        }
+        
+        /* 日志内容 */
+        #log-content {
+            height: calc(100% - 20px);
+            overflow-y: auto;
+            font-size: 12px;
+            line-height: 1.4;
+            color: #333;
+            font-family: monospace;
+        }
+        
+        /* 日志条目 */
+        .log-entry {
+            margin-bottom: 5px;
+            padding: 2px 0;
+            border-bottom: 1px solid #eee;
+        }
+        
+        /* 时间戳 */
+        .log-time {
+            color: #999;
+            margin-right: 10px;
+        }
+        
+        /* 日志类型样式 */
+        .log-info {
+            color: #333;
+        }
+        
+        .log-success {
+            color: #4CAF50;
+        }
+        
+        .log-error {
+            color: #f44336;
+        }
+        
+        .log-warning {
+            color: #ff9800;
+        }
+    </style>
+</head>
+<body>
+    <!-- 主容器 -->
+    <div class="main-container">
+        <!-- 左侧webview区域 -->
+        <div class="webview-container">
+            <webview id="gameWebview" src="https://www.wanyiwan.top/game/xjjdcj" useragent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" plugins="true" allowfullscreen="true"></webview>
+        </div>
+        
+        <!-- 右侧功能区 -->
+        <div class="sidebar">
+            <h2>功能区</h2>
+            
+            <div class="button-container">
+                <button class="function-button" onclick="testButton()">测试按钮</button>
+                <button class="function-button" onclick="handleRefresh()">刷新页面</button>
+                <button class="function-button" onclick="handleFullscreen()">切换全屏</button>
+            </div>
+            
+            <!-- 操作日志区域 -->
+            <div class="log-area">
+                <h3>操作日志</h3>
+                <div id="log-content"></div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // 获取webview元素
+        const gameWebview = document.getElementById('gameWebview');
+        
+        // 获取日志容器
+        const logContent = document.getElementById('log-content');
+        
+        // 全局变量
+        let isFullscreen = false;
+        
+        /**
+         * 输出日志到右侧功能区
+         */
+        function log(message, type = 'info') {
+            // 获取当前时间
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString();
+            
+            // 创建日志条目
+            const logEntry = document.createElement('div');
+            logEntry.className = `log-entry log-${type}`;
+            
+            // 构建日志内容
+            logEntry.innerHTML = `<span class="log-time">${timeStr}</span>${message}`;
+            
+            // 添加到日志容器
+            logContent.appendChild(logEntry);
+            
+            // 滚动到底部
+            logContent.scrollTop = logContent.scrollHeight;
+            
+            // 同时在控制台输出
+            console.log(`${timeStr} [${type.toUpperCase()}] ${message}`);
+        }
+        
+        // 测试按钮功能
+        function testButton() {
+            log('测试按钮被点击', 'success');
+            console.log('测试按钮被点击');
+        }
+        
+        // 刷新页面功能
+        function handleRefresh() {
+            log('刷新页面', 'info');
+            gameWebview.src = gameWebview.src;
+        }
+        
+        // 触发游戏内全屏按钮
+        function handleFullscreen() {
+            log('开始执行全屏操作', 'info');
+            // 在webview中执行脚本，点击游戏内的全屏按钮
+            gameWebview.executeJavaScript(`
+                try {
+                    console.log('开始执行全屏操作');
+                    
+                    // 查找游戏内的全屏按钮
+                    const fullscreenBtn = document.querySelector('.fullScreenBtn-Ft-goHEv');
+                    
+                    if (fullscreenBtn) {
+                        console.log('找到游戏内全屏按钮');
+                        // 点击全屏按钮
+                        fullscreenBtn.click();
+                        console.log('已点击游戏内全屏按钮');
+                    } else {
+                        console.log('未找到游戏内全屏按钮');
+                        // 检查是否存在登录相关内容
+                        const pageText = document.body.textContent.toLowerCase();
+                        if (pageText.includes('登录') || pageText.includes('扫码') || pageText.includes('二维码')) {
+                            console.log('WARNING: 当前页面需要登录，请先完成登录后再尝试使用全屏功能');
+                        } else {
+                            console.log('ERROR: 未找到游戏内全屏按钮，且页面似乎不是登录页面');
+                        }
+                    }
+                } catch (e) {
+                    console.log('ERROR: 执行全屏操作时出错: ' + e.message);
+                }
+            `);
+            
+            // 提示用户操作已执行
+            log('已尝试触发游戏内全屏功能', 'success');
+        }
+        
+        // 监听webview的控制台消息
+        gameWebview.addEventListener('console-message', (e) => {
+            const message = e.message;
+            console.log('Webview控制台:', message);
+            
+            // 处理不同类型的消息
+            if (message.startsWith('WARNING: ')) {
+                log('Webview: ' + message.substring('WARNING: '.length), 'warning');
+            } else if (message.startsWith('ERROR: ')) {
+                log('Webview: ' + message.substring('ERROR: '.length), 'error');
+            } else if (message.startsWith('SUCCESS: ')) {
+                log('Webview: ' + message.substring('SUCCESS: '.length), 'success');
+            } else {
+                log('Webview: ' + message, 'info');
+            }
+        });
+        
+        // 监听webview的加载开始事件
+        gameWebview.addEventListener('did-start-loading', () => {
+            log('游戏页面开始加载', 'info');
+        });
+        
+        // 监听webview的加载完成事件
+        gameWebview.addEventListener('did-finish-load', () => {
+            log('游戏页面已加载完成', 'success');
+        });
+        
+        // 页面加载完成后初始化
+        window.addEventListener('load', () => {
+            log('应用页面已加载完成', 'success');
+            log('日志系统初始化完成，开始监听各种事件', 'info');
+        });
+    </script>
+</body>
+</html>

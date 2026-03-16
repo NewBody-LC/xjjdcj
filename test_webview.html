@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>测试游戏网页（webview）</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            overflow: hidden;
+        }
+        webview {
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+    <webview id="gameWebview" src="https://www.wanyiwan.top/game/xjjdcj"></webview>
+    <script>
+        const webview = document.getElementById('gameWebview');
+        
+        webview.addEventListener('did-finish-load', () => {
+            console.log('webview加载完成');
+        });
+        
+        webview.addEventListener('did-fail-load', (event) => {
+            console.error('webview加载失败:', event);
+        });
+    </script>
+</body>
+</html>

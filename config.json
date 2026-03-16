@@ -1,0 +1,146 @@
+{
+  "version": "1.0.0",
+  "description": "小鸡舰队出击 - 一键遗迹配置文件",
+  
+  "window": {
+    "width": 1280,
+    "height": 720,
+    "fullscreen": false
+  },
+  
+  "ruins": {
+    "adventureButton": {
+      "xPercent": 0.75,
+      "yPercent": 0.88,
+      "description": "首页'冒险活动'按钮位置"
+    },
+    "ancientRuinsButton": {
+      "xPercent": 0.75,
+      "yPercent": 0.55,
+      "description": "'古代遗迹'入口按钮位置"
+    },
+    "goToRuinsButton": {
+      "xPercent": 0.50,
+      "yPercent": 0.84,
+      "description": "'前往遗迹'按钮位置"
+    },
+    "startChallengeButton": {
+      "xPercent": 0.82,
+      "yPercent": 0.88,
+      "description": "遗迹准备界面的'开始挑战'按钮位置"
+    },
+    "nodeChallengeButton": {
+      "xPercent": 0.50,
+      "yPercent": 0.72,
+      "description": "地图中节点挑战按钮位置"
+    },
+    "heroSelection": {
+      "archer": { "xPercent": 0.15, "yPercent": 0.50, "name": "射手" },
+      "assassin": { "xPercent": 0.30, "yPercent": 0.50, "name": "刺客" },
+      "mage": { "xPercent": 0.50, "yPercent": 0.50, "name": "法师" },
+      "priest": { "xPercent": 0.70, "yPercent": 0.50, "name": "牧师" },
+      "warrior": { "xPercent": 0.85, "yPercent": 0.50, "name": "战士" }
+    },
+    "preferredHero": "mage",
+    "targetDifficulty": 3,
+    "maxSteps": 50,
+    "consecutiveNoNodesThreshold": 3,
+    "battleCheckInterval": 60000,
+    "selectionCheckInterval": 30000
+  },
+  
+  "detection": {
+    "yellowThreshold": {
+      "r": 200,
+      "g": 150,
+      "b": 100,
+      "description": "黄色像素检测阈值"
+    },
+    "redThreshold": {
+      "r": 150,
+      "g": 80,
+      "b": 80,
+      "description": "红色像素检测阈值"
+    },
+    "blueThreshold": {
+      "r": 80,
+      "g": 120,
+      "b": 180,
+      "description": "蓝色像素检测阈值"
+    },
+    "orangeThreshold": {
+      "r": 200,
+      "gMin": 100,
+      "gMax": 180,
+      "b": 100,
+      "description": "橙色像素检测阈值"
+    },
+    "sampleCounts": {
+      "map": 300,
+      "state": 40,
+      "title": 40,
+      "blueBar": 5,
+      "card": 50,
+      "equipBar": 40,
+      "threeCards": 3
+    },
+    "ratios": {
+      "yellowForMap": 0.05,
+      "blueBarForHero": 0.6,
+      "grayCardForHero": 0.4,
+      "equipBarForHero": 0.3,
+      "threeCardsForEquip": 0.67
+    }
+  },
+  
+  "ui": {
+    "regions": {
+      "abandonButton": {
+        "xPercent": 0.75,
+        "yPercent": 0.85,
+        "widthPercent": 0.22,
+        "heightPercent": 0.12
+      },
+      "nodeChallenge": {
+        "xPercent": 0.35,
+        "yPercent": 0.68,
+        "widthPercent": 0.30,
+        "heightPercent": 0.12
+      },
+      "goButton": {
+        "xPercent": 0.35,
+        "yPercent": 0.78,
+        "widthPercent": 0.30,
+        "heightPercent": 0.12
+      },
+      "startChallenge": {
+        "xPercent": 0.70,
+        "yPercent": 0.82,
+        "widthPercent": 0.25,
+        "heightPercent": 0.12
+      }
+    }
+  },
+  
+  "timing": {
+    "sleep": {
+      "short": 1000,
+      "medium": 2000,
+      "long": 3000,
+      "pageTransition": 500,
+      "battleWait": 10000,
+      "victoryPopup": 1500,
+      "victoryClose": 2000
+    },
+    "maxRetries": 20,
+    "maxBattleTime": 600000
+  },
+  
+  "nodeTypes": {
+    "yellow": { "name": "普通战斗", "priority": 3 },
+    "red": { "name": "精英战斗", "priority": 4 },
+    "purple": { "name": "BOSS战斗", "priority": 5 },
+    "blue": { "name": "随机事件", "priority": 2 },
+    "green": { "name": "商店", "priority": 1 }
+  }
+}

@@ -1,0 +1,27 @@
+# Trae IDE 忽略文件
+# 这些文件/目录不会被 Trae 索引和监控
+
+# 构建输出
+dist/
+build/
+out/
+release/
+
+# 依赖目录
+node_modules/
+
+# 日志文件
+*.log
+debug.log
+
+# 临时文件
+*.tmp
+.temp/
+
+# ASAR 文件（防止被锁定）
+*.asar
+
+# 压缩包
+*.zip
+*.7z
+*.rar
