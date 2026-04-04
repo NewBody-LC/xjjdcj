@@ -3918,22 +3918,43 @@
          * 合并相近的节点
          */
         function mergeNearbyNodes(nodes, threshold) {
+            // 基于密度聚类：只保留有足够密集邻居的节点
+            // 真实节点是一小团集中像素，背景噪声是分散的
+            const minNeighbors = 2; // 至少2个邻居才认为是节点（含自身至少3个）
             const merged = [];
 
             for (const node of nodes) {
-                let found = false;
-                for (const existing of merged) {
-                    const distance = Math.sqrt(
-                        Math.pow(node.x - existing.x, 2) +
-                        Math.pow(node.y - existing.y, 2)
-                    );
-                    if (distance < threshold) {
-                        found = true;
-                        break;
+                // 计算该点附近的同类型像素密度
+                let neighborCount = 0;
+                for (const other of nodes) {
+                    if (other === node) continue;
+                    // 只计算同类型的邻居
+                    if (other.type !== node.type) continue;
+                    const dist = Math.abs(node.x - other.x) + Math.abs(node.y - other.y); // 曼哈顿距离，更快
+                    if (dist < threshold) {
+                        neighborCount++;
                     }
                 }
-                if (!found) {
-                    merged.push(node);
+
+                // 密度足够才加入候选
+                if (neighborCount >= minNeighbors) {
+                    // 检查是否与已有合并节点过近（去重）
+                    let found = false;
+                    for (const existing of merged) {
+                        if (existing.type !== node.type) continue;
+                        const distance = Math.sqrt(
+                            Math.pow(node.x - existing.x, 2) +
+                            Math.pow(node.y - existing.y, 2)
+                        );
+                        if (distance < threshold * 1.5) {
+                            // 保留更靠近中心的那个（计算邻居平均位置）
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (!found) {
+                        merged.push(node);
+                    }
                 }
             }
 
