@@ -3839,17 +3839,17 @@
          */
         /**
          * 检测是否有弹窗覆盖层
-         * 弹窗通常在画面中央偏下，有半透明暗色背景
+         * 弹窗特征：中央有亮色弹窗框（亮度>150），被较暗遮罩包围
+         * 不能只用暗色占比判断，因为地图本身也是暗的
          */
         function detectPopupOverlay(bitmap, width, height) {
-            // 检查画面中央区域是否有明显的暗色遮罩
-            // 弹窗通常占据画面 40%-80% 宽度，30%-70% 高度
-            const xStart = Math.floor(width * 0.2);
-            const xEnd = Math.floor(width * 0.8);
+            // 检查画面中央区域是否有亮色弹窗框
+            const xStart = Math.floor(width * 0.15);
+            const xEnd = Math.floor(width * 0.85);
             const yStart = Math.floor(height * 0.2);
             const yEnd = Math.floor(height * 0.7);
 
-            let darkPixels = 0;
+            let brightPixels = 0;
             let totalPixels = 0;
 
             for (let y = yStart; y < yEnd; y += 6) {
@@ -3857,13 +3857,14 @@
                     const idx = (y * width + x) * 4;
                     const r = bitmap[idx], g = bitmap[idx + 1], b = bitmap[idx + 2];
                     const brightness = (r + g + b) / 3;
-                    if (brightness < 60) darkPixels++;
+                    // 亮色像素（弹窗框）
+                    if (brightness > 150) brightPixels++;
                     totalPixels++;
                 }
             }
 
-            // 弹窗弹出的暗色遮罩通常占中央区域20%以上
-            return totalPixels > 0 && (darkPixels / totalPixels) > 0.15;
+            // 弹窗框通常占中央区域10%以上（地图上没有这么大的亮色区域）
+            return totalPixels > 0 && (brightPixels / totalPixels) > 0.10;
         }
 
         function detectNodes(bitmap, width, height) {
@@ -3920,7 +3921,7 @@
         function mergeNearbyNodes(nodes, threshold) {
             // 基于密度聚类：只保留有足够密集邻居的节点
             // 真实节点是一小团集中像素，背景噪声是分散的
-            const minNeighbors = 2; // 至少2个邻居才认为是节点（含自身至少3个）
+            const minNeighbors = 3; // 至少3个邻居才认为是节点（含自身至少4个，过滤噪声簇）
             const merged = [];
 
             for (const node of nodes) {
