@@ -2863,8 +2863,16 @@
                     hasPopup: false      // 是否有弹窗
                 };
 
-                // 1. 使用千问VL视觉模型识别节点
-                analysis.nodes = await detectNodesByVision(bitmap, width, height);
+                // 1. 使用千问VL识别节点（首次或缓存过期时）
+                if (!smartExploreRuins._cachedNodes || smartExploreRuins._cacheTime < Date.now() - 30000) {
+                    log('使用千问VL识别地图节点...', 'info');
+                    analysis.nodes = await detectNodesByVision();
+                    smartExploreRuins._cachedNodes = analysis.nodes;
+                    smartExploreRuins._cacheTime = Date.now();
+                } else {
+                    analysis.nodes = smartExploreRuins._cachedNodes;
+                    log('使用缓存的节点数据 (' + analysis.nodes.length + '个)', 'info');
+                }
                 analysis.reachableNodes = analysis.nodes;
                 analysis.hasPopup = detectPopupOverlay(bitmap, width, height);
 
@@ -3903,7 +3911,7 @@
                             role: 'user',
                             content: [
                                 { type: 'image_url', image_url: { url: 'data:image/png;base64,' + imageBase64 } },
-                                { type: 'text', text: '这是游戏遗迹地图。找出所有节点（圆形图标）。节点类型：黄色=normal，红色=elite，紫色=boss，蓝色=event，绿色=shop。输出JSON数组，每项包含type(英文类型)和x,y(百分比0-100)。只输出JSON，不要其他文字。' }
+                                { type: 'text', text: '这是一个游戏遗迹地图，深色背景上有彩色圆形节点。请仔细数出所有节点（大概15-25个），用百分比坐标定位。类型：黄色/橙色=normal，红色=elite，紫色=boss，蓝色=event，绿色=shop。重要：坐标必须是占画面宽高的百分比(0-100)。只输出JSON数组。' }
                             ]
                         }],
                         max_tokens: 1500
