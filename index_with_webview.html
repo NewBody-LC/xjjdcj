@@ -2863,8 +2863,8 @@
                     hasPopup: false      // 是否有弹窗
                 };
 
-                // 1. 始终检测节点（节点存在即为地图状态的最可靠判断）
-                analysis.nodes = detectNodes(bitmap, width, height);
+                // 1. 使用千问VL视觉模型识别节点
+                analysis.nodes = await detectNodesByVision(bitmap, width, height);
                 analysis.reachableNodes = analysis.nodes;
                 analysis.hasPopup = detectPopupOverlay(bitmap, width, height);
 
@@ -3865,6 +3865,90 @@
 
             // 弹窗框通常占中央区域10%以上（地图上没有这么大的亮色区域）
             return totalPixels > 0 && (brightPixels / totalPixels) > 0.10;
+        }
+
+        /**
+         * 使用千问VL视觉模型识别地图节点
+         * 比像素检测更准确
+         */
+        async function detectNodesByVision(bitmap, width, height) {
+            try {
+                // 将bitmap转为PNG buffer
+                const { createCanvas } = require('canvas');
+                // 直接用NativeImage保存到临时文件
+                const fs = require('fs');
+                const path = require('path');
+                const tmpDir = path.join(__dirname, 'JT');
+                const tmpFile = path.join(tmpDir, 'map_detect_tmp.png');
+
+                // 使用capturePage获取image再保存（更可靠）
+                const image = await gameWebview.capturePage();
+                fs.writeFileSync(tmpFile, image.toPNG());
+
+                const imageBase64 = fs.readFileSync(tmpFile).toString('base64');
+
+                // 调用千问VL API
+                const apiKey = 'sk-80dec1652c1d428b9d42651298a4de0e';
+                const baseUrl = 'https://dashscope.aliyuncs.com/compatible-mode/v1';
+
+                const response = await fetch(baseUrl + '/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + apiKey
+                    },
+                    body: JSON.stringify({
+                        model: 'qwen-vl-max-latest',
+                        messages: [{
+                            role: 'user',
+                            content: [
+                                { type: 'image_url', image_url: { url: 'data:image/png;base64,' + imageBase64 } },
+                                { type: 'text', text: '这是游戏遗迹地图。找出所有节点（圆形图标）。节点类型：黄色=normal，红色=elite，紫色=boss，蓝色=event，绿色=shop。输出JSON数组，每项包含type(英文类型)和x,y(百分比0-100)。只输出JSON，不要其他文字。' }
+                            ]
+                        }],
+                        max_tokens: 1500
+                    })
+                });
+
+                const data = await response.json();
+                const content = data.choices?.[0]?.message?.content || '';
+
+                // 解析JSON（可能被```json包裹）
+                const jsonMatch = content.match(/\[[\s\S]*\]/);
+                if (!jsonMatch) {
+                    log('[千问VL] 未识别到节点JSON', 'warning');
+                    return [];
+                }
+
+                const rawNodes = JSON.parse(jsonMatch[0]);
+
+                // 转换为像素坐标并映射类型
+                const nodes = rawNodes.map(n => {
+                    // 类型映射
+                    const typeMap = {
+                        'normal': 'normal', '黄色': 'normal', '普通': 'normal', '普通战斗': 'normal',
+                        'elite': 'elite', '红色': 'elite', '精英': 'elite', '精英战斗': 'elite',
+                        'boss': 'boss', '紫色': 'boss', 'BOSS': 'boss',
+                        'event': 'event', '蓝色': 'event', '随机': 'event', '随机事件': 'event', 'random': 'event',
+                        'shop': 'shop', '绿色': 'shop', '商店': 'shop', 'store': 'shop'
+                    };
+                    const mappedType = typeMap[n.type] || typeMap[String(n.type)] || 'normal';
+                    return {
+                        x: Math.round(width * n.x / 100),
+                        y: Math.round(height * n.y / 100),
+                        type: mappedType,
+                        color: mappedType
+                    };
+                });
+
+                log(`[千问VL] 识别到 ${nodes.length} 个节点`, 'info');
+                return nodes;
+
+            } catch (error) {
+                log('[千问VL] 节点识别失败: ' + error.message, 'warning');
+                // 降级到像素检测
+                return detectNodes(bitmap, width, height);
+            }
         }
 
         function detectNodes(bitmap, width, height) {
