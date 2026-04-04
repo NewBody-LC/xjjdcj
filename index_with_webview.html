@@ -2866,7 +2866,7 @@
                 analysis.currentState = await detectGameState(bitmap, width, height);
 
                 // 2. 如果是地图状态，识别节点和难度楼层
-                if (analysis.currentState === 'map') {
+                if (analysis.currentState === '地图') {
                     analysis.nodes = detectNodes(bitmap, width, height);
                     analysis.playerPosition = detectPlayerPosition(bitmap, width, height);
                     analysis.reachableNodes = findReachableNodes(analysis.nodes, analysis.playerPosition, bitmap, width, height);
@@ -3848,8 +3848,8 @@
                     const g = bitmap[idx + 1];
                     const b = bitmap[idx + 2];
 
-                    // 识别黄色节点（普通战斗）
-                    if (r > 200 && g > 180 && b < 100) {
+                    // 识别黄色节点（普通战斗）- 宽泛暖色调
+                    if (r > 140 && g > 80 && b < 120 && r > b) {
                         nodes.push({
                             x: x,
                             y: y,
@@ -3889,7 +3889,7 @@
                         nodes.push({
                             x: x,
                             y: y,
-                            type: 'green',
+                            type: 'shop',
                             color: 'green'
                         });
                     }
@@ -4112,8 +4112,8 @@
                     const g = bitmap[idx + 1];
                     const b = bitmap[idx + 2];
 
-                    // 检测黄色
-                    if (r > 200 && g > 150 && b < 100) {
+                    // 识别黄色黄线 - 宽泛暖色调
+                    if (r > 140 && g > 80 && b < 120 && r > b) {
                         yellowCount++;
                     }
                     totalCount++;
@@ -4225,6 +4225,27 @@
                             if (checkStopRequested()) return;
                             log('检测到胜利完成界面，点击确定...', 'info');
                             await handleVictoryComplete();
+                            break;
+
+                        case '商店':
+                            if (checkStopRequested()) return;
+                            log('检测到商店界面，关闭商店...', 'info');
+                            await closeShopIfPresent();
+                            await sleep(1000);
+                            break;
+
+                        case '事件':
+                            if (checkStopRequested()) return;
+                            log('检测到事件界面，自动选择第一个选项...', 'info');
+                            await handleEventSelection();
+                            await sleep(1000);
+                            break;
+
+                        case '准备':
+                            if (checkStopRequested()) return;
+                            log('检测到准备界面，点击开始挑战...', 'info');
+                            await clickStartChallengeButton();
+                            await sleep(3000);
                             break;
 
                         default:
@@ -4407,6 +4428,12 @@
                 // 等待一段时间
                 await sleep(10000); // 每10秒检查一次
                 battleTime += 10000;
+
+                // 检查停止请求
+                if (checkStopRequested()) {
+                    log('用户请求停止，退出战斗等待', 'info');
+                    return false;
+                }
 
                 // 每30秒检测一次装备选择
                 if (battleTime - lastSelectionCheck >= selectionCheckInterval) {
