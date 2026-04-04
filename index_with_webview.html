@@ -2868,13 +2868,16 @@
                 // 2. 如果是地图状态，识别节点和难度楼层
                 if (analysis.currentState === '地图') {
                     analysis.nodes = detectNodes(bitmap, width, height);
-                    analysis.playerPosition = detectPlayerPosition(bitmap, width, height);
-                    analysis.reachableNodes = findReachableNodes(analysis.nodes, analysis.playerPosition, bitmap, width, height);
+                    // 不再依赖路径判断，直接返回所有检测到的节点
+                    analysis.reachableNodes = analysis.nodes;
 
                     // 检测难度和楼层
                     const difficultyInfo = detectDifficultyAndFloor(bitmap, width, height);
                     analysis.difficulty = difficultyInfo.difficulty;
                     analysis.floor = difficultyInfo.floor;
+
+                    // 弹窗检测：检查画面中央是否有遮罩弹窗（半透明暗色区域）
+                    analysis.hasPopup = detectPopupOverlay(bitmap, width, height);
                 }
 
                 return analysis;
@@ -3837,61 +3840,75 @@
          * 识别地图上的节点
          * 通过颜色特征识别不同类型的节点
          */
+        /**
+         * 检测是否有弹窗覆盖层
+         * 弹窗通常在画面中央偏下，有半透明暗色背景
+         */
+        function detectPopupOverlay(bitmap, width, height) {
+            // 检查画面中央区域是否有明显的暗色遮罩
+            // 弹窗通常占据画面 40%-80% 宽度，30%-70% 高度
+            const xStart = Math.floor(width * 0.2);
+            const xEnd = Math.floor(width * 0.8);
+            const yStart = Math.floor(height * 0.2);
+            const yEnd = Math.floor(height * 0.7);
+
+            let darkPixels = 0;
+            let totalPixels = 0;
+
+            for (let y = yStart; y < yEnd; y += 6) {
+                for (let x = xStart; x < xEnd; x += 6) {
+                    const idx = (y * width + x) * 4;
+                    const r = bitmap[idx], g = bitmap[idx + 1], b = bitmap[idx + 2];
+                    const brightness = (r + g + b) / 3;
+                    if (brightness < 60) darkPixels++;
+                    totalPixels++;
+                }
+            }
+
+            // 弹窗弹出的暗色遮罩通常占中央区域20%以上
+            return totalPixels > 0 && (darkPixels / totalPixels) > 0.15;
+        }
+
         function detectNodes(bitmap, width, height) {
             const nodes = [];
-            const gridSize = 20; // 采样网格大小
+            const gridSize = 8; // 更小的采样网格，提高精度
 
-            for (let y = 0; y < height; y += gridSize) {
-                for (let x = 0; x < width; x += gridSize) {
+            // 排除画面边缘（顶部标题栏、底部按钮栏）
+            const yStart = Math.floor(height * 0.08);
+            const yEnd = Math.floor(height * 0.88);
+            const xStart = Math.floor(width * 0.03);
+            const xEnd = Math.floor(width * 0.97);
+
+            for (let y = yStart; y < yEnd; y += gridSize) {
+                for (let x = xStart; x < xEnd; x += gridSize) {
                     const idx = (y * width + x) * 4;
                     const r = bitmap[idx];
                     const g = bitmap[idx + 1];
                     const b = bitmap[idx + 2];
+                    const brightness = (r + g + b) / 3;
 
-                    // 识别黄色节点（普通战斗）- 宽泛暖色调
+                    // 节点需要有一定亮度（排除暗色背景像素被误判）
+                    if (brightness < 80) continue;
+
+                    // 识别黄色节点（普通战斗）- 暖色调亮点
                     if (r > 140 && g > 80 && b < 120 && r > b) {
-                        nodes.push({
-                            x: x,
-                            y: y,
-                            type: 'normal',
-                            color: 'yellow'
-                        });
+                        nodes.push({ x: x, y: y, type: 'normal', color: 'yellow' });
                     }
                     // 识别红色节点（精英战斗）
-                    else if (r > 180 && g < 100 && b < 100) {
-                        nodes.push({
-                            x: x,
-                            y: y,
-                            type: 'elite',
-                            color: 'red'
-                        });
+                    else if (r > 150 && g < 120 && b < 120 && r > g + 30) {
+                        nodes.push({ x: x, y: y, type: 'elite', color: 'red' });
                     }
                     // 识别紫色节点（BOSS战）
-                    else if (r > 150 && g < 100 && b > 150) {
-                        nodes.push({
-                            x: x,
-                            y: y,
-                            type: 'boss',
-                            color: 'purple'
-                        });
+                    else if (b > 100 && r > 80 && g < r && b > g && r < b + 80) {
+                        nodes.push({ x: x, y: y, type: 'boss', color: 'purple' });
                     }
                     // 识别蓝色节点（随机事件）
-                    else if (r < 100 && g < 150 && b > 180) {
-                        nodes.push({
-                            x: x,
-                            y: y,
-                            type: 'event',
-                            color: 'blue'
-                        });
+                    else if (b > 120 && b > r + 30 && b > g + 30) {
+                        nodes.push({ x: x, y: y, type: 'event', color: 'blue' });
                     }
                     // 识别绿色节点（商店）
-                    else if (r < 100 && g > 180 && b < 100) {
-                        nodes.push({
-                            x: x,
-                            y: y,
-                            type: 'shop',
-                            color: 'green'
-                        });
+                    else if (g > 120 && g > r + 30 && g > b + 30) {
+                        nodes.push({ x: x, y: y, type: 'shop', color: 'green' });
                     }
                 }
             }
@@ -4176,20 +4193,29 @@
                         break;
                     }
 
-                    log(`当前状态: ${analysis.currentState}`, 'info');
+                    const nodeInfo = analysis.nodes ? `${analysis.nodes.length}个节点` : '无节点';
+                    const popupInfo = analysis.hasPopup ? '[有弹窗]' : '';
+                    log(`当前状态: ${analysis.currentState} ${nodeInfo} ${popupInfo}`, 'info');
 
                     switch (analysis.currentState) {
                         case '地图':
                             if (checkStopRequested()) return;
-                            if (analysis.reachableNodes.length > 0) {
+                            if (analysis.hasPopup) {
+                                // 有弹窗：说明刚点了节点，等待弹窗内容被其他状态分支处理
+                                log('地图上有弹窗，等待状态变化...', 'info');
                                 consecutiveNoNodes = 0;
-                                const targetNode = selectBestNode(analysis.reachableNodes);
-                                log(`选择节点: ${targetNode.type} (${targetNode.x}, ${targetNode.y})`, 'info');
+                                await sleep(2000);
+                            } else if (analysis.nodes.length > 0) {
+                                // 无弹窗且有节点：选择优先级最高的节点点击
+                                consecutiveNoNodes = 0;
+                                const targetNode = selectBestNode(analysis.nodes);
+                                log(`发现 ${analysis.nodes.length} 个节点，选择: ${targetNode.type} (${targetNode.x}, ${targetNode.y})`, 'info');
 
                                 await clickAtPosition(targetNode.x, targetNode.y);
                                 if (checkStopRequested()) return;
                                 await sleep(2000);
 
+                                // 点击战斗节点后可能弹出挑战确认按钮
                                 if (targetNode.type === 'normal' || targetNode.type === 'elite' || targetNode.type === 'boss') {
                                     await clickChallengeButtonIfPresent();
                                 }
@@ -4197,10 +4223,10 @@
                                 await sleep(3000);
                             } else {
                                 consecutiveNoNodes++;
-                                log(`没有可到达的节点（第${consecutiveNoNodes}次）`, 'warning');
+                                log(`没有检测到节点（第${consecutiveNoNodes}次）`, 'warning');
 
                                 if (consecutiveNoNodes >= maxConsecutiveNoNodes) {
-                                    log('连续多次没有可到达节点，遗迹探索完成', 'success');
+                                    log('连续多次没有检测到节点，遗迹探索完成', 'success');
                                     return;
                                 }
                                 if (checkStopRequested()) return;
