@@ -2997,7 +2997,7 @@
 
             if (redRatio > 0.15) return '战斗';
             else if (isPrepareScreen) return '准备';
-            else if (yellowRatio > 0.08) return '地图';
+            else if (yellowRatio > 0.02) return '地图';
             else return detectSelectionState(bitmap, width, height);
         }
 
@@ -3884,8 +3884,8 @@
                     const b = bitmap[idx + 2];
                     const brightness = (r + g + b) / 3;
 
-                    // 节点需要有一定亮度（排除暗色背景像素被误判）
-                    if (brightness < 80) continue;
+                    // 排除纯黑背景像素（节点颜色再暗也有一定亮度）
+                    if (brightness < 40) continue;
 
                     // 识别黄色节点（普通战斗）- 暖色调亮点
                     if (r > 140 && g > 80 && b < 120 && r > b) {
