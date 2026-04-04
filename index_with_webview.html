@@ -122,7 +122,25 @@
         .function-button.config:hover {
             background: linear-gradient(135deg, #1976D2 0%, #1565C0 100%);
         }
-        
+
+        /* 退出账号按钮样式 */
+        .function-button.logout {
+            background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
+        }
+
+        .function-button.logout:hover {
+            background: linear-gradient(135deg, #f57c00 0%, #e65100 100%);
+        }
+
+        /* 调试模式按钮样式 */
+        .function-button.debug {
+            background: linear-gradient(135deg, #9c27b0 0%, #7b1fa2 100%);
+        }
+
+        .function-button.debug:hover {
+            background: linear-gradient(135deg, #7b1fa2 0%, #6a1b9a 100%);
+        }
+
         /* 说明文本 */
         .description {
             margin-top: 15px;
@@ -564,6 +582,8 @@
                 <button class="function-button" onclick="handleFullscreen()">切换全屏</button>
                 <button class="function-button" onclick="enableCoordinateSelection()">坐标选择</button>
                 <button class="function-button" onclick="handleSimulateClick()">模拟点击</button>
+                <button class="function-button logout" onclick="handleLogout()">退出账号</button>
+                <button class="function-button debug" onclick="openDebugMode()">调试模式</button>
             </div>
 
             <!-- 坐标显示区域 -->
@@ -1975,40 +1995,125 @@
                     // 等待进入地图界面
                     log('等待进入遗迹地图界面...', 'info');
                     await sleep(3000);
-                } else {
-                    // 入口界面或其他界面：执行完整流程
-                    // 步骤4: 点击"前往遗迹"按钮
-                    log('准备点击前往遗迹按钮...', 'info');
-                    const step4Result = await clickGoToRuinsButton();
+                } else if (currentState === '商店') {
+                    // 在商店界面
+                    log('检测到在商店界面，尝试关闭商店', 'info');
+                    await closeShopIfPresent();
                     if (checkStopRequested()) return;
-                    if (!step4Result) {
-                        log('点击前往遗迹按钮失败', 'error');
-                        updateRuinsButtonState(false);
-                        return;
+                    await sleep(1000);
+                } else if (currentState === '事件') {
+                    // 在事件界面
+                    log('检测到在事件界面，自动选择第一个选项', 'info');
+                    await handleEventSelection();
+                    if (checkStopRequested()) return;
+                    await sleep(1000);
+                } else {
+                    // 入口界面或其他界面（未知状态）：执行完整流程
+                    let needGoToRuins = true;
+
+                    // 先等待页面稳定
+                    log('等待页面稳定...', 'info');
+                    await sleep(2000);
+                    if (checkStopRequested()) return;
+
+                    // 重新检测状态
+                    const recheckState = await detectCurrentRuinsState();
+                    if (checkStopRequested()) return;
+
+                    // 增强检测返回"未知"时，用简单版像素检测兜底
+                    let effectiveState = recheckState;
+                    if (recheckState === '未知') {
+                        log('增强检测返回未知，等待5秒后尝试简单像素检测...', 'info');
+                        try {
+                            const captured = await captureAndSave('recheck_unknown');
+                            const simpleState = detectGameState(captured.bitmap, captured.width, captured.height);
+                            if (simpleState === '准备' || simpleState === '地图') {
+                                log(`简单像素检测到: ${simpleState}，采用该结果`, 'info');
+                                effectiveState = simpleState;
+                            }
+                        } catch (e) { /* 兜底检测失败不影响 */ }
                     }
 
-                    // 等待进入遗迹准备界面
-                    log('等待进入遗迹准备界面...', 'info');
-                    await sleep(2000);
-
-                    // 再次检测状态，确认是否有开始挑战按钮
-                    const prepareState = await detectCurrentRuinsState();
-                    if (prepareState === '准备') {
-                        // 步骤5: 点击"开始挑战"按钮
-                        log('准备点击开始挑战按钮...', 'info');
-                        const step5Result = await clickStartChallengeButton();
+                    if (effectiveState === '准备') {
+                        needGoToRuins = false;
+                    } else if (effectiveState === '地图') {
+                        needGoToRuins = false;
+                    } else {
+                        // 未知/其他状态，再等一轮
+                        log('状态仍为未知，再等待一轮...', 'warning');
+                        await sleep(2000);
+                        const thirdCheck = await detectCurrentRuinsState();
                         if (checkStopRequested()) return;
-                        if (!step5Result) {
-                            log('点击开始挑战按钮失败', 'error');
+                        if (thirdCheck === '准备' || thirdCheck === '地图') {
+                            needGoToRuins = false;
+                        }
+                    }
+
+                    if (needGoToRuins) {
+                        log('准备点击前往遗迹按钮...', 'info');
+                        const step4Result = await clickGoToRuinsButton();
+                        if (checkStopRequested()) return;
+                        if (!step4Result) {
+                            log('点击前往遗迹按钮失败', 'error');
                             updateRuinsButtonState(false);
                             return;
                         }
+                    }
 
-                        // 等待进入地图界面
-                        log('等待进入遗迹地图界面...', 'info');
-                        await sleep(3000);
+                    // 等待页面响应
+                    await sleep(2500);
+                    if (checkStopRequested()) return;
+
+                    // 【关键】点击前往遗迹后，始终用像素检测判断是否到了准备页面
+                    // 不再依赖增强检测（增强检测经常返回错误状态）
+                    log('检测是否进入准备页面（像素检测）...', 'info');
+                    let afterGoState = '未知';
+                    try {
+                        const captured = await captureAndSave('after_goto_ruins');
+                        afterGoState = detectGameState(captured.bitmap, captured.width, captured.height);
+                        log(`像素检测结果: ${afterGoState}`, 'info');
+                    } catch (e) {
+                        log('像素检测失败，尝试增强检测...', 'warning');
+                        afterGoState = await detectCurrentRuinsState();
+                    }
+
+                    if (afterGoState === '准备') {
+                        // 需要点击开始挑战
+                        let startSuccess = false;
+                        for (let retryIdx = 0; retryIdx < 3; retryIdx++) {
+                            log('准备点击开始挑战按钮...', 'info');
+                            const step5Result = await clickStartChallengeButton();
+                            if (checkStopRequested()) return;
+                            if (!step5Result) continue;
+
+                            await sleep(3000);
+                            const afterStartState = await detectCurrentRuinsState();
+                            if (checkStopRequested()) return;
+
+                            if (afterStartState === '地图' || afterStartState === '战斗' || afterStartState === '选择') {
+                                startSuccess = true;
+                                log(`开始挑战成功，当前状态: ${afterStartState}`, 'success');
+                                break;
+                            }
+                            log(`点击开始挑战后状态: ${afterStartState}，重试 (${retryIdx + 1}/3)...`, 'warning');
+                        }
+                        if (!startSuccess) {
+                            log('多次尝试开始挑战失败，请检查游戏状态', 'error');
+                            updateRuinsButtonState(false);
+                            return;
+                        }
                     }
                 }
+
+                // 最终确认：进入智能探索前，验证确实在地图或战斗/选择状态
+                const finalState = await detectCurrentRuinsState();
+                if (checkStopRequested()) return;
+                if (finalState === '入口界面' || finalState === '准备' || finalState === '未知') {
+                    log(`最终状态仍为 ${finalState}，未成功进入遗迹，操作中止`, 'error');
+                    updateRuinsButtonState(false);
+                    return;
+                }
+                log(`最终状态确认: ${finalState}，开始智能探索`, 'success');
 
                 // 步骤6: 开始智能探索地图
                 log('开始智能探索遗迹地图...', 'info');
@@ -2387,6 +2492,76 @@
         }
 
         /**
+         * 关闭商店界面（如果存在）
+         * 商店界面通常有"关闭"或"X"按钮在右上角
+         */
+        async function closeShopIfPresent() {
+            try {
+                const gameSize = await gameWebview.executeJavaScript(`(function() {
+                    const canvas = document.querySelector('canvas');
+                    if (canvas) {
+                        return { width: canvas.width, height: canvas.height };
+                    }
+                    return { width: window.innerWidth, height: window.innerHeight };
+                })()`);
+
+                // 关闭按钮位置：右上角（90%宽度，10%高度）
+                const x = Math.round(gameSize.width * 0.90);
+                const y = Math.round(gameSize.height * 0.10);
+
+                log(`尝试点击关闭商店按钮，坐标: (${x}, ${y})`, 'info');
+
+                const result = await ipcRenderer.invoke('simulate-mouse-click', 'game-webview', x, y);
+
+                if (result.success) {
+                    log('已点击关闭商店按钮', 'success');
+                    return true;
+                } else {
+                    log('点击关闭商店按钮失败: ' + result.error, 'error');
+                    return false;
+                }
+            } catch (error) {
+                log('关闭商店时出错: ' + error.message, 'error');
+                return false;
+            }
+        }
+
+        /**
+         * 处理事件选择界面
+         * 自动选择第一个选项
+         */
+        async function handleEventSelection() {
+            try {
+                const gameSize = await gameWebview.executeJavaScript(`(function() {
+                    const canvas = document.querySelector('canvas');
+                    if (canvas) {
+                        return { width: canvas.width, height: canvas.height };
+                    }
+                    return { width: window.innerWidth, height: window.innerHeight };
+                })()`);
+
+                // 选择按钮位置：屏幕中间偏下（50%宽度，60%高度）
+                const x = Math.round(gameSize.width * 0.50);
+                const y = Math.round(gameSize.height * 0.60);
+
+                log(`尝试点击事件选项，坐标: (${x}, ${y})`, 'info');
+
+                const result = await ipcRenderer.invoke('simulate-mouse-click', 'game-webview', x, y);
+
+                if (result.success) {
+                    log('已点击事件选项', 'success');
+                    return true;
+                } else {
+                    log('点击事件选项失败: ' + result.error, 'error');
+                    return false;
+                }
+            } catch (error) {
+                log('处理事件选择时出错: ' + error.message, 'error');
+                return false;
+            }
+        }
+
+        /**
          * 点击节点挑战按钮（地图中点击节点后的挑战按钮）
          * 位置：屏幕中间中偏下
          */
@@ -2437,9 +2612,9 @@
                     return { width: window.innerWidth, height: window.innerHeight };
                 })()`);
 
-                // 开始挑战按钮位置：屏幕中间偏下方（82%高度）
-                const x = Math.round(gameSize.width * 0.82);
-                const y = Math.round(gameSize.height * 0.88);
+                // 从配置读取开始挑战按钮位置
+                const x = Math.round(ruinsConfig.startChallengeButton.xPercent * gameSize.width);
+                const y = Math.round(ruinsConfig.startChallengeButton.yPercent * gameSize.height);
 
                 log(`点击开始挑战按钮，坐标: (${x}, ${y})`, 'info');
 
@@ -2714,13 +2889,43 @@
          * 检测当前游戏状态
          * 返回：地图/战斗/选择/结果/未知
          */
+        /**
+         * 保存截图到JT目录用于调试
+         */
+        function saveDebugScreenshot(image, label) {
+            try {
+                const fs = require('fs');
+                const path = require('path');
+                const jtDir = path.join(__dirname, 'JT');
+                if (!fs.existsSync(jtDir)) { fs.mkdirSync(jtDir, { recursive: true }); }
+                const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+                const filename = `screenshot_${timestamp}_${label || 'debug'}.png`;
+                const filepath = path.join(jtDir, filename);
+                fs.writeFileSync(filepath, image.toPNG());
+                log(`[调试] 截图已保存: ${filepath}`, 'info');
+            } catch (e) {
+                log(`[调试] 保存截图失败: ${e.message}`, 'warning');
+            }
+        }
+
+        /**
+         * 捕获页面并保存截图（等待5秒让Canvas渲染完成）
+         */
+        async function captureAndSave(label) {
+            await sleep(5000);
+            const image = await gameWebview.capturePage();
+            saveDebugScreenshot(image, label);
+            const size = image.getSize();
+            const bitmap = image.toBitmap();
+            return { image, bitmap, width: size.width, height: size.height };
+        }
+
+        /**
+         * 检测当前游戏状态（简单像素版，用于兜底）
+         * 返回：地图/战斗/选择/准备/未知
+         */
         function detectGameState(bitmap, width, height) {
             // 采样检测不同状态的特征
-            // 战斗状态：通常有红色血条、技能按钮等
-            // 选择状态：有装备/角色选择界面
-            // 地图状态：有黄线和节点
-
-            // 检测战斗状态特征（红色血条区域）
             let redPixels = 0;
             let yellowPixels = 0;
             const sampleCount = 500;
@@ -2732,29 +2937,68 @@
                 const r = bitmap[idx];
                 const g = bitmap[idx + 1];
                 const b = bitmap[idx + 2];
-
                 // 检测红色（血条）
-                if (r > 150 && g < 80 && b < 80) {
-                    redPixels++;
-                }
-                // 检测黄色（黄线/节点）
-                if (r > 200 && g > 150 && b < 100) {
-                    yellowPixels++;
-                }
+                if (r > 150 && g < 80 && b < 80) redPixels++;
+                // 检测黄色/橙色（黄线/节点）- 宽泛暖色调
+                if (r > 140 && g > 80 && b < 120 && r > b) yellowPixels++;
             }
 
             const redRatio = redPixels / sampleCount;
             const yellowRatio = yellowPixels / sampleCount;
 
-            // 判断状态
-            if (redRatio > 0.15) {
-                return '战斗';
-            } else if (yellowRatio > 0.08) {
-                return '地图';
-            } else {
-                // 进一步检测是否是选择界面
-                return detectSelectionState(bitmap, width, height);
+            // 检测"准备"状态：下半屏有黄色按钮 + 紫色按钮 = 难度选择页
+            let lowerYellow = 0, lowerPurple = 0, lowerTotal = 0;
+            let colorBuckets = { red:0, orange:0, yellow:0, green:0, cyan:0, blue:0, purple:0, pink:0, white:0, dark:0, gray:0 };
+            let debugSamples = [];
+            for (let y = Math.floor(height * 0.65); y < Math.floor(height * 0.95); y += 4) {
+                for (let x = Math.floor(width * 0.05); x < Math.floor(width * 0.95); x += 4) {
+                    lowerTotal++;
+                    const idx = (y * width + x) * 4;
+                    const r = bitmap[idx], g = bitmap[idx + 1], b = bitmap[idx + 2];
+                    const max = Math.max(r, g, b), min = Math.min(r, g, b);
+                    const brightness = (r + g + b) / 3;
+                    // 颜色分类
+                    if (brightness < 50) colorBuckets.dark++;
+                    else if (brightness > 200 && max - min < 30) colorBuckets.white++;
+                    else if (max - min < 30) colorBuckets.gray++;
+                    else if (r === max && r > g + 30 && r > b + 30) colorBuckets.red++;
+                    else if (r === max && r > b && g > b && r - b < 100) colorBuckets.orange++;
+                    else if (r === max && g === max && b < r - 50) colorBuckets.yellow++;
+                    else if (g === max && g > r && g > b) colorBuckets.green++;
+                    else if (b === max && g > r && b > r) colorBuckets.cyan++;
+                    else if (b === max && b > r && b > g && r > g) colorBuckets.blue++;
+                    else if (b === max && b > r && b > g) colorBuckets.purple++;
+                    else if (r === max && b > g) colorBuckets.pink++;
+                    else colorBuckets.gray++;
+                    // 黄色/橙色按钮 - 宽泛暖色调
+                    if (r > 140 && g > 80 && b < 120 && r > b) lowerYellow++;
+                    // 紫色/蓝紫色按钮 - 排除纯蓝背景
+                    if (b > 90 && r > 60 && g < r && b > g && r > b * 0.3) lowerPurple++;
+                }
+                if (y === Math.floor(height * 0.65) || y === Math.floor(height * 0.80) || y === Math.floor(height * 0.90)) {
+                    for (const xp of [0.2, 0.4, 0.5, 0.6, 0.8]) {
+                        const si = (y * width + Math.floor(width * xp)) * 4;
+                        debugSamples.push(`(${Math.floor(width*xp)},${y}): R=${bitmap[si]} G=${bitmap[si+1]} B=${bitmap[si+2]}`);
+                    }
+                }
             }
+            const lowerYellowRatio = lowerYellow / Math.max(1, lowerTotal);
+            const lowerPurpleRatio = lowerPurple / Math.max(1, lowerTotal);
+            const isPrepareScreen = (lowerYellowRatio > 0.03 && lowerPurpleRatio > 0.01) ||
+                                    (lowerYellowRatio > 0.05) ||
+                                    (lowerPurpleRatio > 0.05);
+            // 调试日志
+            const bucketStr = Object.entries(colorBuckets).filter(([,v]) => v > 0).map(([k,v]) => `${k}:${((v/lowerTotal)*100).toFixed(1)}%`).join(' ');
+            log(`[准备检测] 下半屏黄:${(lowerYellowRatio*100).toFixed(1)}% 紫:${(lowerPurpleRatio*100).toFixed(1)}% 全屏黄:${(yellowRatio*100).toFixed(1)}% -> ${isPrepareScreen ? '准备' : '非准备'}`, 'info');
+            log(`[颜色分布] ${bucketStr}`, 'info');
+            if (debugSamples.length > 0) {
+                log(`[采样像素] ${debugSamples.slice(0, 8).join(' | ')}`, 'info');
+            }
+
+            if (redRatio > 0.15) return '战斗';
+            else if (isPrepareScreen) return '准备';
+            else if (yellowRatio > 0.08) return '地图';
+            else return detectSelectionState(bitmap, width, height);
         }
 
         /**
@@ -3076,6 +3320,10 @@
                 healthBarPattern: detectHealthBarPattern(bitmap, width, height),
                 // 按钮模式（底部黄色/红色按钮）
                 buttonPattern: detectButtonPattern(bitmap, width, height),
+                // 挑战按钮检测（仅限中间 1/3~2/3 区域）
+                challengeButton: detectChallengeButton(bitmap, width, height),
+                // 放弃按钮检测（右上角红色按钮）
+                abandonButton: detectAbandonButton(bitmap, width, height),
                 // 卡片模式（中央白色卡片区域）
                 cardPattern: detectCardPattern(bitmap, width, height),
                 // 标题模式（顶部橙色/粉红色标题）
@@ -3135,7 +3383,6 @@
             const yEnd = Math.floor(height * region.yEnd);
 
             let yellowPixels = 0;
-            let redPixels = 0;
             let totalPixels = 0;
 
             for (let y = yStart; y < yEnd; y += 3) {
@@ -3146,15 +3393,82 @@
                     const b = bitmap[idx + 2];
 
                     if (matchColor(r, g, b, colors.yellow)) yellowPixels++;
-                    if (matchColor(r, g, b, colors.red)) redPixels++;
                     totalPixels++;
                 }
             }
 
             return {
                 hasYellowButton: yellowPixels / totalPixels > 0.25,
-                hasRedButton: redPixels / totalPixels > 0.25,
-                yellowRatio: yellowPixels / totalPixels,
+                yellowRatio: yellowPixels / totalPixels
+            };
+        }
+
+        /**
+         * 检测挑战按钮（仅限中间1/3~2/3区域的黄色按钮）
+         * 专门用于节点挑战状态检测
+         */
+        function detectChallengeButton(bitmap, width, height) {
+            const config = STATE_DETECTION_CONFIG;
+            const colors = config.colors;
+
+            // 挑战按钮在页面中央偏下区域：x 从 1/3 到 2/3，y 从 50% 到 80%
+            const xStart = Math.floor(width * 0.33);  // 左侧 1/3
+            const xEnd = Math.floor(width * 0.67);    // 右侧 2/3
+            const yStart = Math.floor(height * 0.50); // 中间 50%
+            const yEnd = Math.floor(height * 0.80);   // 到 80%
+
+            let yellowPixels = 0;
+            let totalPixels = 0;
+
+            for (let y = yStart; y < yEnd; y += 2) {
+                for (let x = xStart; x < xEnd; x += 2) {
+                    const idx = (y * width + x) * 4;
+                    const r = bitmap[idx];
+                    const g = bitmap[idx + 1];
+                    const b = bitmap[idx + 2];
+
+                    if (matchColor(r, g, b, colors.yellow)) yellowPixels++;
+                    totalPixels++;
+                }
+            }
+
+            return {
+                hasChallengeButton: yellowPixels / totalPixels > 0.20,
+                yellowRatio: yellowPixels / totalPixels
+            };
+        }
+
+        /**
+         * 检测放弃按钮（右上角红色按钮）
+         * 用于节点挑战状态辅助检测
+         */
+        function detectAbandonButton(bitmap, width, height) {
+            const config = STATE_DETECTION_CONFIG;
+            const colors = config.colors;
+
+            // 放弃按钮在页面右上角：x 从 85% 到 98%，y 从 5% 到 15%
+            const xStart = Math.floor(width * 0.85);
+            const xEnd = Math.floor(width * 0.98);
+            const yStart = Math.floor(height * 0.05);
+            const yEnd = Math.floor(height * 0.15);
+
+            let redPixels = 0;
+            let totalPixels = 0;
+
+            for (let y = yStart; y < yEnd; y += 2) {
+                for (let x = xStart; x < xEnd; x += 2) {
+                    const idx = (y * width + x) * 4;
+                    const r = bitmap[idx];
+                    const g = bitmap[idx + 1];
+                    const b = bitmap[idx + 2];
+
+                    if (matchColor(r, g, b, colors.red)) redPixels++;
+                    totalPixels++;
+                }
+            }
+
+            return {
+                hasAbandonButton: redPixels / totalPixels > 0.20,
                 redRatio: redPixels / totalPixels
             };
         }
@@ -3284,6 +3598,8 @@
                 '选择': 0,
                 '胜利完成': 0,
                 '节点挑战': 0,
+                '商店': 0,
+                '事件': 0,
                 '准备': 0,
                 '入口界面': 0,
                 '未知': 0.1  // 基础未知概率
@@ -3322,9 +3638,29 @@
                 probabilities['胜利完成'] += 0.6;
             }
 
-            // 节点挑战状态（有放弃按钮 + 挑战按钮）
-            if (regions.bottomRight.ratios.red > 0.25 && patterns.buttonPattern.hasYellowButton) {
+            // 节点挑战状态：检测中央偏下的黄色挑战按钮 + 右上角红色放弃按钮
+            if (patterns.challengeButton.hasChallengeButton) {
                 probabilities['节点挑战'] += 0.5;
+            }
+            
+            // 辅助判断：如果有放弃按钮，增加节点挑战概率
+            if (patterns.abandonButton.hasAbandonButton) {
+                probabilities['节点挑战'] += 0.2;
+            }
+
+            // 商店状态检测（绿色节点占比较高）
+            if (colorRatios.green > 0.03) {
+                probabilities['商店'] += 0.4;
+            }
+
+            // 事件状态检测（蓝色节点占比较高）
+            if (colorRatios.blue > 0.03) {
+                probabilities['事件'] += 0.4;
+            }
+
+            // 商店状态（绿色节点占比较高且中央有白色面板）
+            if (colorRatios.green > 0.03 && patterns.cardPattern.hasOverlay) {
+                probabilities['商店'] += 0.3;
             }
 
             // 准备状态（有开始挑战按钮）
@@ -4063,6 +4399,8 @@
             let battleTime = 0;
             let lastSelectionCheck = 0;
 
+            let lastBattleCheck = 0;
+
             log('进入战斗状态，开始轮询检测...', 'info');
 
             while (battleTime < maxBattleTime) {
@@ -4076,7 +4414,7 @@
                     log(`战斗进行中，已等待 ${battleTime/1000} 秒，检测是否有装备选择...`, 'info');
 
                     const analysis = await analyzeRuinsMap();
-                    if (analysis && analysis.currentState === 'selection') {
+                    if (analysis && analysis.currentState === '选择') {
                         log('检测到装备/角色选择界面，开始选择...', 'info');
                         await handleSelection();
                         log('装备选择完成，继续等待战斗结束...', 'info');
@@ -4084,11 +4422,12 @@
                 }
 
                 // 每60秒检测一次战斗状态
-                if (battleTime % battleCheckInterval === 0) {
+                if (battleTime - lastBattleCheck >= battleCheckInterval) {
+                    lastBattleCheck = battleTime;
                     log(`战斗进行中，已等待 ${battleTime/1000} 秒，检测战斗状态...`, 'info');
 
                     const analysis = await analyzeRuinsMap();
-                    if (analysis && analysis.currentState !== 'battle') {
+                    if (analysis && analysis.currentState !== '战斗') {
                         log('战斗已结束', 'success');
                         // 检测并处理胜利完成界面
                         await handleVictoryComplete();
@@ -5197,6 +5536,8 @@
                 if (hasQRCode) {
                     status = 'NOT_LOGGED_IN';
                     statusText = '未登录（检测到二维码）';
+                    // 检测到登录页面，应用二维码居中样式
+                    applyQRCodeCenterStyle();
                 } else if (hasAgeTip && !hasGameColors) {
                     status = 'LOADING';
                     statusText = '加载中（检测到适龄提示）';
@@ -5216,19 +5557,383 @@
                 // 如果登录成功，触发自动全屏
                 if (status === 'LOGGED_IN') {
                     log('登录成功（检测到游戏界面），准备触发全屏', 'success');
+                    // 移除二维码居中样式
+                    removeQRCodeCenterStyle();
                     triggerFullscreen();
                     // 标记已经登录成功并全屏
                     hasLoggedInAndFullscreen = true;
                 }
                 
                 return status;
-                
+
             } catch (error) {
                 log('截图检测登录状态时出错: ' + error.message, 'error');
                 return 'UNKNOWN';
             }
         }
-        
+
+        // 标记是否已经应用了二维码居中样式
+        let qrCodeStyleApplied = false;
+
+        /**
+         * 应用二维码居中显示样式
+         * 隐藏登录页面的其他元素，只显示二维码并居中
+         */
+        async function applyQRCodeCenterStyle() {
+            // 如果已经应用过样式，不再重复应用
+            if (qrCodeStyleApplied) {
+                return;
+            }
+
+            try {
+                if (!gameWebview) {
+                    return;
+                }
+
+                log('检测到登录页面，应用二维码居中样式...', 'info');
+
+                await gameWebview.executeJavaScript(`
+                    (function() {
+                        try {
+                            // 检查是否已经添加过样式
+                            if (document.getElementById('qrcode-center-style')) {
+                                return { success: true, message: '样式已存在' };
+                            }
+
+                            // 首先尝试使用精确选择器找到二维码容器
+                            let qrContainer = null;
+
+                            // 方法1: 查找包含contentTop类的登录区域容器
+                            const contentTopSelector = '[class*="contentTop-"]';
+                            const contentTopEl = document.querySelector(contentTopSelector);
+                            if (contentTopEl) {
+                                console.log('找到contentTop元素:', contentTopEl);
+                                // 向上查找到包含整个登录区域的父容器
+                                qrContainer = contentTopEl.parentElement;
+                                if (qrContainer) {
+                                    console.log('使用contentTop找到二维码容器:', qrContainer);
+                                }
+                            }
+
+                            // 如果没找到，尝试直接查找二维码canvas
+                            if (!qrContainer) {
+                                const canvasSelector = '.ant-spin-nested-loading .ant-spin-container .tech-qrcode canvas';
+                                const qrCanvas = document.querySelector(canvasSelector);
+                                if (qrCanvas) {
+                                    console.log('找到二维码canvas:', canvasSelector, qrCanvas);
+                                    // 向上查找到包含标题和二维码的完整区域
+                                    qrContainer = qrCanvas.closest('[class*="content-"]') ||
+                                                  qrCanvas.closest('.ant-spin-container') ||
+                                                  qrCanvas.parentElement;
+                                    if (qrContainer) {
+                                        console.log('使用canvas找到二维码容器:', qrContainer);
+                                    }
+                                }
+                            }
+
+                            // 方法2: 如果没找到，尝试查找二维码图片元素
+                            let qrImgElement = null;
+                            if (!qrContainer) {
+                                const possibleQRSelectors = [
+                                    '.qrcode-container img',
+                                    '.qr-code img',
+                                    '.qr-container img',
+                                    '[class*="qrcode"] img',
+                                    '[class*="qr-code"] img',
+                                    'img[src*="qr"]',
+                                    'img[src*="QR"]'
+                                ];
+
+                                for (const selector of possibleQRSelectors) {
+                                    const elements = document.querySelectorAll(selector);
+                                    for (const el of elements) {
+                                        if (el.tagName === 'IMG') {
+                                            qrImgElement = el;
+                                            console.log('找到二维码图片:', selector, el);
+                                            break;
+                                        }
+                                    }
+                                    if (qrImgElement) break;
+                                }
+
+                                // 方法3: 如果没找到，尝试查找页面右侧的大图片
+                                if (!qrImgElement) {
+                                    const allImages = document.querySelectorAll('img');
+                                    for (const img of allImages) {
+                                        const rect = img.getBoundingClientRect();
+                                        // 在右侧区域且尺寸较大的正方形图片（二维码通常是正方形）
+                                        if (rect.left > window.innerWidth * 0.5 &&
+                                            rect.width > 150 && rect.height > 150 &&
+                                            Math.abs(rect.width - rect.height) < 50) {
+                                            qrImgElement = img;
+                                            console.log('通过位置找到二维码图片:', img);
+                                            break;
+                                        }
+                                    }
+                                }
+
+                                if (!qrImgElement) {
+                                    return { success: false, error: '未找到二维码图片元素' };
+                                }
+
+                                // 尝试找到包含二维码的父容器（向上查找3层）
+                                qrContainer = qrImgElement.parentElement;
+                                let parentLevel = 1;
+                                while (qrContainer && parentLevel < 4) {
+                                    // 检查父容器是否包含文本内容（标题或提示）
+                                    const textContent = qrContainer.textContent || '';
+                                    const hasTitle = textContent.includes('登录') || textContent.includes('扫码');
+                                    const hasMultipleChildren = qrContainer.children.length >= 2;
+
+                                    // 如果父容器有多个子元素或者有相关文本，可能是完整的登录区域
+                                    if (hasMultipleChildren || hasTitle) {
+                                        console.log('找到二维码容器（层级' + parentLevel + '）:', qrContainer);
+                                        break;
+                                    }
+                                    qrContainer = qrContainer.parentElement;
+                                    parentLevel++;
+                                }
+
+                                // 如果没找到合适的容器，使用图片的父元素
+                                if (!qrContainer || parentLevel >= 4) {
+                                    qrContainer = qrImgElement.parentElement;
+                                }
+                            }
+
+                            // 创建样式标签
+                            const style = document.createElement('style');
+                            style.id = 'qrcode-center-style';
+                            style.textContent = \`
+                                /* 全屏遮罩层 */
+                                #qrcode-overlay {
+                                    position: fixed !important;
+                                    top: 0 !important;
+                                    left: 0 !important;
+                                    width: 100vw !important;
+                                    height: 100vh !important;
+                                    background: rgba(0, 0, 0, 0.85) !important;
+                                    z-index: 99998 !important;
+                                    display: flex !important;
+                                    justify-content: center !important;
+                                    align-items: center !important;
+                                }
+
+                                /* 二维码容器 - 保留原始结构 */
+                                #qrcode-clone-container {
+                                    z-index: 99999 !important;
+                                    max-width: 90vw !important;
+                                    max-height: 90vh !important;
+                                    overflow: auto !important;
+                                }
+
+                                /* 确保二维码图片清晰 */
+                                #qrcode-clone-container img {
+                                    max-width: 100% !important;
+                                    height: auto !important;
+                                    display: block !important;
+                                }
+                            \`;
+                            document.head.appendChild(style);
+
+                            // 创建遮罩层
+                            const overlay = document.createElement('div');
+                            overlay.id = 'qrcode-overlay';
+
+                            // 先从原始容器中获取所有canvas的数据URL（必须在克隆前获取）
+                            const originalCanvases = qrContainer.querySelectorAll('canvas');
+                            const canvasDataUrls = [];
+                            originalCanvases.forEach((canvas, index) => {
+                                try {
+                                    const dataUrl = canvas.toDataURL('image/png');
+                                    canvasDataUrls.push({
+                                        index: index,
+                                        dataUrl: dataUrl,
+                                        width: canvas.width,
+                                        height: canvas.height,
+                                        styleWidth: canvas.style.width,
+                                        styleHeight: canvas.style.height
+                                    });
+                                    console.log('已获取canvas数据URL:', index, dataUrl.substring(0, 50) + '...');
+                                } catch (e) {
+                                    console.error('获取canvas数据URL失败:', index, e);
+                                }
+                            });
+
+                            // 克隆整个二维码区域（保留原始结构，包括标题和提示）
+                            const containerClone = qrContainer.cloneNode(true);
+                            containerClone.id = 'qrcode-clone-container';
+
+                            // 处理克隆后的canvas元素 - 使用之前获取的数据URL替换
+                            const clonedCanvases = containerClone.querySelectorAll('canvas');
+                            clonedCanvases.forEach((canvas, index) => {
+                                try {
+                                    if (canvasDataUrls[index]) {
+                                        // 创建图片元素替换canvas
+                                        const img = document.createElement('img');
+                                        img.src = canvasDataUrls[index].dataUrl;
+                                        img.style.width = canvasDataUrls[index].styleWidth || canvasDataUrls[index].width + 'px';
+                                        img.style.height = canvasDataUrls[index].styleHeight || canvasDataUrls[index].height + 'px';
+                                        img.style.display = 'block';
+                                        // 替换canvas
+                                        canvas.parentNode.replaceChild(img, canvas);
+                                        console.log('Canvas已替换为图片:', index);
+                                    } else {
+                                        console.warn('没有找到对应的canvas数据URL:', index);
+                                    }
+                                } catch (e) {
+                                    console.error('Canvas替换失败:', index, e);
+                                }
+                            });
+
+                            // 设置容器样式 - 居中显示，优化视觉效果
+                            containerClone.style.cssText = '';
+                            containerClone.style.margin = '0';
+                            containerClone.style.padding = '40px';
+                            containerClone.style.background = 'white';
+                            containerClone.style.borderRadius = '16px';
+                            containerClone.style.boxShadow = '0 20px 60px rgba(0,0,0,0.3)';
+                            containerClone.style.maxWidth = '90vw';
+                            containerClone.style.maxHeight = '90vh';
+                            containerClone.style.overflow = 'auto';
+                            containerClone.style.display = 'flex';
+                            containerClone.style.flexDirection = 'column';
+                            containerClone.style.alignItems = 'center';
+                            containerClone.style.justifyContent = 'center';
+
+                            // 设置标题样式
+                            const titleEl = containerClone.querySelector('[class*="title-"], h1, h2, h3, h4');
+                            if (titleEl) {
+                                titleEl.style.fontSize = '24px';
+                                titleEl.style.fontWeight = 'bold';
+                                titleEl.style.color = '#333';
+                                titleEl.style.marginBottom = '20px';
+                                titleEl.style.textAlign = 'center';
+                            }
+
+                            // 设置二维码图片样式
+                            const qrImg = containerClone.querySelector('img');
+                            if (qrImg) {
+                                qrImg.style.width = '250px';
+                                qrImg.style.height = '250px';
+                                qrImg.style.margin = '20px 0';
+                                qrImg.style.borderRadius = '8px';
+                                qrImg.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)';
+                            }
+
+                            // 设置底部提示样式
+                            const descEl = containerClone.querySelector('[class*="description-"], [class*="desc-"]');
+                            if (descEl) {
+                                descEl.style.fontSize = '16px';
+                                descEl.style.color = '#666';
+                                descEl.style.marginTop = '20px';
+                                descEl.style.textAlign = 'center';
+                            }
+
+                            // 组装
+                            overlay.appendChild(containerClone);
+                            document.body.appendChild(overlay);
+
+                            console.log('二维码区域居中显示已创建');
+                            return { success: true, message: '二维码居中样式已应用' };
+                        } catch (e) {
+                            console.error('应用二维码样式时出错:', e);
+                            return { success: false, error: e.message };
+                        }
+                    })()
+                `);
+
+                qrCodeStyleApplied = true;
+                log('二维码居中样式应用成功', 'success');
+
+            } catch (error) {
+                console.error('应用二维码居中样式时出错:', error);
+                log('应用二维码样式失败: ' + error.message, 'warning');
+            }
+        }
+
+        /**
+         * 移除二维码居中样式（登录成功后调用）
+         */
+        async function removeQRCodeCenterStyle() {
+            if (!qrCodeStyleApplied) {
+                return;
+            }
+
+            try {
+                if (!gameWebview) {
+                    return;
+                }
+
+                await gameWebview.executeJavaScript(`
+                    (function() {
+                        try {
+                            // 移除样式标签
+                            const style = document.getElementById('qrcode-center-style');
+                            if (style) {
+                                style.remove();
+                                console.log('二维码样式标签已移除');
+                            }
+
+                            // 移除遮罩层（包含整个二维码区域克隆）
+                            const overlay = document.getElementById('qrcode-overlay');
+                            if (overlay) {
+                                overlay.remove();
+                                console.log('二维码遮罩层已移除');
+                            }
+
+                            return { success: true };
+                        } catch (e) {
+                            console.error('移除二维码样式时出错:', e);
+                            return { success: false, error: e.message };
+                        }
+                    })()
+                `);
+
+                qrCodeStyleApplied = false;
+                log('二维码居中样式已移除', 'info');
+
+            } catch (error) {
+                console.error('移除二维码居中样式时出错:', error);
+            }
+        }
+
+        /**
+         * 打开调试模式
+         * 创建一个独立的浏览器窗口直接加载游戏页面，便于使用开发者工具调试
+         */
+        async function openDebugMode() {
+            try {
+                log('正在打开调试模式...', 'info');
+
+                // 调用主进程创建调试窗口
+                const result = await ipcRenderer.invoke('create-debug-window', 'https://www.wanyiwan.top/game/xjjdcj');
+
+                if (result.success) {
+                    log('调试模式窗口已打开，开发者工具已自动开启', 'success');
+                    log('提示：在调试窗口中可以使用Chrome开发者工具检查元素', 'info');
+                } else {
+                    log('打开调试模式失败: ' + result.error, 'error');
+                }
+            } catch (error) {
+                log('打开调试模式时出错: ' + error.message, 'error');
+                console.error('打开调试模式时出错:', error);
+            }
+        }
+
+        /**
+         * 关闭调试模式
+         */
+        async function closeDebugMode() {
+            try {
+                const result = await ipcRenderer.invoke('close-debug-window');
+                if (result.success) {
+                    log('调试模式窗口已关闭', 'info');
+                }
+            } catch (error) {
+                console.error('关闭调试模式时出错:', error);
+            }
+        }
+
         /**
          * 检测右侧二维码区域
          * 特征：大量黑白像素，颜色单一，位于页面右侧
@@ -5725,6 +6430,396 @@
                     }
                 })()`).then(result => resolve(result)).catch(() => resolve(false));
             });
+        }
+
+        // ==================== 账号退出功能 ====================
+
+        /**
+         * 处理退出账号操作
+         * 显示确认对话框，确认后清除账号数据并跳转
+         */
+        async function handleLogout() {
+            try {
+                // 显示确认对话框
+                const confirmed = await showLogoutConfirmation();
+                if (!confirmed) {
+                    log('用户取消退出账号操作', 'info');
+                    return;
+                }
+
+                log('开始执行账号退出操作...', 'info');
+
+                // 执行账号退出流程
+                const logoutResult = await performLogout();
+
+                if (logoutResult.success) {
+                    log('账号退出成功，正在跳转至登录页面...', 'success');
+                    // 延迟跳转，让用户看到成功消息
+                    setTimeout(() => {
+                        navigateToLoginPage();
+                    }, 1000);
+                } else {
+                    log('账号退出失败: ' + logoutResult.error, 'error');
+                }
+            } catch (error) {
+                log('退出账号时发生异常: ' + error.message, 'error');
+                console.error('退出账号时发生异常:', error);
+            }
+        }
+
+        /**
+         * 显示退出账号确认对话框
+         * @returns {Promise<boolean>} 用户是否确认退出
+         */
+        function showLogoutConfirmation() {
+            return new Promise((resolve) => {
+                // 创建自定义对话框遮罩层
+                const overlay = document.createElement('div');
+                overlay.id = 'logout-confirm-overlay';
+                overlay.style.cssText = `
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    background: rgba(0, 0, 0, 0.6);
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    z-index: 10000;
+                    backdrop-filter: blur(3px);
+                `;
+
+                // 创建对话框内容
+                const dialog = document.createElement('div');
+                dialog.style.cssText = `
+                    background: linear-gradient(135deg, #ffffff 0%, #f5f5f5 100%);
+                    padding: 30px;
+                    border-radius: 12px;
+                    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+                    max-width: 400px;
+                    width: 90%;
+                    text-align: center;
+                    animation: dialogFadeIn 0.3s ease;
+                `;
+
+                // 添加动画样式
+                const style = document.createElement('style');
+                style.textContent = `
+                    @keyframes dialogFadeIn {
+                        from {
+                            opacity: 0;
+                            transform: scale(0.9) translateY(-20px);
+                        }
+                        to {
+                            opacity: 1;
+                            transform: scale(1) translateY(0);
+                        }
+                    }
+                `;
+                document.head.appendChild(style);
+
+                // 对话框标题
+                const title = document.createElement('h3');
+                title.textContent = '确认退出账号';
+                title.style.cssText = `
+                    margin: 0 0 15px 0;
+                    color: #333;
+                    font-size: 18px;
+                    font-weight: bold;
+                `;
+
+                // 对话框消息
+                const message = document.createElement('p');
+                message.textContent = '确定要退出当前账号吗？退出后将清除当前账号的登录状态和缓存数据。';
+                message.style.cssText = `
+                    margin: 0 0 25px 0;
+                    color: #666;
+                    font-size: 14px;
+                    line-height: 1.5;
+                `;
+
+                // 按钮容器
+                const buttonContainer = document.createElement('div');
+                buttonContainer.style.cssText = `
+                    display: flex;
+                    gap: 15px;
+                    justify-content: center;
+                `;
+
+                // 确认按钮
+                const confirmBtn = document.createElement('button');
+                confirmBtn.textContent = '确认退出';
+                confirmBtn.style.cssText = `
+                    padding: 10px 24px;
+                    background: linear-gradient(135deg, #ff6b6b 0%, #ee5a5a 100%);
+                    color: white;
+                    border: none;
+                    border-radius: 6px;
+                    cursor: pointer;
+                    font-size: 14px;
+                    font-weight: bold;
+                    transition: all 0.3s ease;
+                `;
+                confirmBtn.onmouseover = () => {
+                    confirmBtn.style.background = 'linear-gradient(135deg, #ee5a5a 0%, #d64545 100%)';
+                    confirmBtn.style.transform = 'translateY(-1px)';
+                };
+                confirmBtn.onmouseout = () => {
+                    confirmBtn.style.background = 'linear-gradient(135deg, #ff6b6b 0%, #ee5a5a 100%)';
+                    confirmBtn.style.transform = 'translateY(0)';
+                };
+
+                // 取消按钮
+                const cancelBtn = document.createElement('button');
+                cancelBtn.textContent = '取消';
+                cancelBtn.style.cssText = `
+                    padding: 10px 24px;
+                    background: linear-gradient(135deg, #e0e0e0 0%, #d0d0d0 100%);
+                    color: #555;
+                    border: none;
+                    border-radius: 6px;
+                    cursor: pointer;
+                    font-size: 14px;
+                    font-weight: bold;
+                    transition: all 0.3s ease;
+                `;
+                cancelBtn.onmouseover = () => {
+                    cancelBtn.style.background = 'linear-gradient(135deg, #d0d0d0 0%, #c0c0c0 100%)';
+                    cancelBtn.style.transform = 'translateY(-1px)';
+                };
+                cancelBtn.onmouseout = () => {
+                    cancelBtn.style.background = 'linear-gradient(135deg, #e0e0e0 0%, #d0d0d0 100%)';
+                    cancelBtn.style.transform = 'translateY(0)';
+                };
+
+                // 按钮点击事件
+                confirmBtn.onclick = () => {
+                    document.body.removeChild(overlay);
+                    document.head.removeChild(style);
+                    resolve(true);
+                };
+
+                cancelBtn.onclick = () => {
+                    document.body.removeChild(overlay);
+                    document.head.removeChild(style);
+                    resolve(false);
+                };
+
+                // 点击遮罩层关闭（可选）
+                overlay.onclick = (e) => {
+                    if (e.target === overlay) {
+                        document.body.removeChild(overlay);
+                        document.head.removeChild(style);
+                        resolve(false);
+                    }
+                };
+
+                // 组装对话框
+                buttonContainer.appendChild(cancelBtn);
+                buttonContainer.appendChild(confirmBtn);
+                dialog.appendChild(title);
+                dialog.appendChild(message);
+                dialog.appendChild(buttonContainer);
+                overlay.appendChild(dialog);
+                document.body.appendChild(overlay);
+
+                // 聚焦到取消按钮（默认安全选项）
+                cancelBtn.focus();
+            });
+        }
+
+        /**
+         * 执行账号退出操作
+         * 通过触发游戏内的"退出登录"按钮实现真正的账号退出
+         * @returns {Promise<Object>} 退出结果
+         */
+        async function performLogout() {
+            try {
+                // 1. 首先停止任何正在运行的自动化任务
+                if (isRuinsRunning) {
+                    ruinsStopRequested = true;
+                    log('正在停止运行中的遗迹任务...', 'info');
+                    await sleep(500);
+                }
+
+                // 2. 在游戏界面中触发退出登录按钮
+                if (gameWebview) {
+                    try {
+                        log('正在查找并触发游戏内的退出登录按钮...', 'info');
+
+                        // 先尝试点击个人信息区域（右上角），然后点击退出登录
+                        const logoutResult = await gameWebview.executeJavaScript(`
+                            (async function() {
+                                try {
+                                    // 方法1: 查找包含"退出登录"文本的按钮
+                                    const logoutButtons = Array.from(document.querySelectorAll('button, div, span, a'));
+                                    const logoutBtn = logoutButtons.find(el =>
+                                        el.textContent && (
+                                            el.textContent.includes('退出登录') ||
+                                            el.textContent.includes('退出账号') ||
+                                            el.textContent.includes('登出')
+                                        )
+                                    );
+
+                                    if (logoutBtn) {
+                                        console.log('找到退出登录按钮:', logoutBtn);
+                                        logoutBtn.click();
+                                        return { success: true, method: 'direct_click' };
+                                    }
+
+                                    // 方法2: 查找个人信息/头像区域（通常在右上角）
+                                    const userInfoElements = Array.from(document.querySelectorAll('div, img, button')).filter(el => {
+                                        const rect = el.getBoundingClientRect();
+                                        // 在右上角区域 (右上角的20%区域)
+                                        const isInTopRight = rect.top < window.innerHeight * 0.15 &&
+                                                            rect.right > window.innerWidth * 0.8;
+                                        const hasUserIndicator = el.className && (
+                                            el.className.includes('user') ||
+                                            el.className.includes('profile') ||
+                                            el.className.includes('avatar') ||
+                                            el.className.includes('info') ||
+                                            el.className.includes('head')
+                                        );
+                                        return isInTopRight && (hasUserIndicator || el.querySelector('img'));
+                                    });
+
+                                    if (userInfoElements.length > 0) {
+                                        console.log('找到个人信息区域:', userInfoElements[0]);
+                                        // 点击个人信息区域，可能会显示下拉菜单
+                                        userInfoElements[0].click();
+
+                                        // 等待下拉菜单出现
+                                        await new Promise(resolve => setTimeout(resolve, 500));
+
+                                        // 再次查找退出登录按钮
+                                        const logoutButtonsAfter = Array.from(document.querySelectorAll('button, div, span, a'));
+                                        const logoutBtnAfter = logoutButtonsAfter.find(el =>
+                                            el.textContent && (
+                                                el.textContent.includes('退出登录') ||
+                                                el.textContent.includes('退出账号') ||
+                                                el.textContent.includes('登出')
+                                            )
+                                        );
+
+                                        if (logoutBtnAfter) {
+                                            console.log('在下拉菜单中找到退出登录按钮:', logoutBtnAfter);
+                                            logoutBtnAfter.click();
+                                            return { success: true, method: 'dropdown_click' };
+                                        }
+
+                                        return { success: false, error: '点击个人信息后未找到退出登录按钮' };
+                                    }
+
+                                    // 方法3: 尝试通过坐标点击（右上角区域）
+                                    const topRightX = window.innerWidth * 0.9;
+                                    const topRightY = window.innerHeight * 0.08;
+
+                                    // 在坐标处查找元素
+                                    const elementAtPoint = document.elementFromPoint(topRightX, topRightY);
+                                    if (elementAtPoint) {
+                                        console.log('在右上角找到元素:', elementAtPoint);
+                                        elementAtPoint.click();
+
+                                        // 等待下拉菜单
+                                        await new Promise(resolve => setTimeout(resolve, 500));
+
+                                        // 查找退出按钮
+                                        const finalLogoutBtns = Array.from(document.querySelectorAll('button, div, span, a'));
+                                        const finalLogoutBtn = finalLogoutBtns.find(el =>
+                                            el.textContent && (
+                                                el.textContent.includes('退出登录') ||
+                                                el.textContent.includes('退出账号') ||
+                                                el.textContent.includes('登出')
+                                            )
+                                        );
+
+                                        if (finalLogoutBtn) {
+                                            finalLogoutBtn.click();
+                                            return { success: true, method: 'coordinate_click' };
+                                        }
+                                    }
+
+                                    return { success: false, error: '未找到退出登录按钮或个人信息区域' };
+                                } catch (e) {
+                                    console.error('触发退出登录按钮时出错:', e);
+                                    return { success: false, error: e.message };
+                                }
+                            })()
+                        `);
+
+                        if (logoutResult.success) {
+                            log(`成功触发游戏内退出登录按钮 (方法: ${logoutResult.method})`, 'success');
+                            // 等待游戏处理退出
+                            await sleep(2000);
+                        } else {
+                            log('未能自动触发游戏内退出登录按钮: ' + logoutResult.error, 'warning');
+                            log('将尝试备用方案：清除本地数据并刷新页面', 'info');
+                        }
+                    } catch (webviewError) {
+                        console.warn('在游戏界面中执行退出操作时出错:', webviewError);
+                        log('游戏内退出操作失败，使用备用方案', 'warning');
+                    }
+                }
+
+                // 3. 清除localStorage中的账号相关数据（备用方案）
+                const keysToRemove = [];
+                for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    if (key && (
+                        key.includes('token') ||
+                        key.includes('session') ||
+                        key.includes('auth') ||
+                        key.includes('user') ||
+                        key.includes('login') ||
+                        key.includes('account') ||
+                        key.includes('credential')
+                    )) {
+                        keysToRemove.push(key);
+                    }
+                }
+
+                keysToRemove.forEach(key => {
+                    localStorage.removeItem(key);
+                    console.log(`已清除localStorage: ${key}`);
+                });
+
+                // 4. 重置应用状态
+                isLoggedIn = false;
+                if (heartbeatInterval) {
+                    clearInterval(heartbeatInterval);
+                    heartbeatInterval = null;
+                }
+
+                log('账号退出操作完成', 'success');
+                return { success: true };
+
+            } catch (error) {
+                console.error('执行账号退出时出错:', error);
+                return { success: false, error: error.message };
+            }
+        }
+
+        /**
+         * 导航至登录页面
+         * 游戏已通过点击退出登录按钮自动跳转，这里只需重置状态并开始检测
+         */
+        function navigateToLoginPage() {
+            try {
+                // 重置全屏状态
+                isFullscreen = false;
+
+                log('等待游戏自动跳转至登录页面...', 'info');
+
+                // 延迟后开始检测登录状态（给游戏时间完成跳转）
+                setTimeout(() => {
+                    startHeartbeat();
+                    log('已开始检测登录状态', 'info');
+                }, 3000);
+            } catch (error) {
+                log('跳转至登录页面时出错: ' + error.message, 'error');
+                console.error('跳转至登录页面时出错:', error);
+            }
         }
     </script>
 </body>
