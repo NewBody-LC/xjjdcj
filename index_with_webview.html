@@ -2857,27 +2857,24 @@
                     nodes: [],           // 识别到的节点
                     playerPosition: null, // 玩家位置
                     reachableNodes: [],  // 可到达的节点
-                    currentState: 'unknown', // 当前状态：map/battle/selection/result
+                    currentState: 'unknown', // 当前状态
                     difficulty: 0,       // 当前难度
-                    floor: 0             // 当前楼层
+                    floor: 0,            // 当前楼层
+                    hasPopup: false      // 是否有弹窗
                 };
 
-                // 1. 检测当前状态
+                // 1. 始终检测节点（节点存在即为地图状态的最可靠判断）
+                analysis.nodes = detectNodes(bitmap, width, height);
+                analysis.reachableNodes = analysis.nodes;
+                analysis.hasPopup = detectPopupOverlay(bitmap, width, height);
+
+                // 2. 检测当前状态
                 analysis.currentState = await detectGameState(bitmap, width, height);
 
-                // 2. 如果是地图状态，识别节点和难度楼层
-                if (analysis.currentState === '地图') {
-                    analysis.nodes = detectNodes(bitmap, width, height);
-                    // 不再依赖路径判断，直接返回所有检测到的节点
-                    analysis.reachableNodes = analysis.nodes;
-
-                    // 检测难度和楼层
-                    const difficultyInfo = detectDifficultyAndFloor(bitmap, width, height);
-                    analysis.difficulty = difficultyInfo.difficulty;
-                    analysis.floor = difficultyInfo.floor;
-
-                    // 弹窗检测：检查画面中央是否有遮罩弹窗（半透明暗色区域）
-                    analysis.hasPopup = detectPopupOverlay(bitmap, width, height);
+                // 3. 如果检测到节点且状态不是战斗/选择等，则覆盖为地图状态
+                if (analysis.nodes.length > 0 && analysis.currentState !== '战斗' && analysis.currentState !== '选择' && analysis.currentState !== '准备') {
+                    analysis.currentState = '地图';
+                    log(`检测到 ${analysis.nodes.length} 个节点，状态覆盖为: 地图`, 'info');
                 }
 
                 return analysis;
