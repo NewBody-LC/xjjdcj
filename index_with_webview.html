@@ -10,558 +10,7 @@
         // 启用 @electron/remote 模块
         require('@electron/remote').initialize();
     </script>
-    <style>
-        /* 重置默认样式 */
-        body {
-            margin: 0;
-            padding: 0;
-            overflow: hidden;
-            height: 100vh;
-            font-family: Arial, sans-serif;
-        }
-        
-        /* 主容器布局 */
-        .main-container {
-            display: flex;
-            height: 100vh;
-        }
-        
-        /* 左侧webview区域 */
-        .webview-container {
-            flex: 1;
-            height: 100vh;
-            position: relative;
-            overflow: hidden;
-        }
-        
-        /* webview样式 */
-        .webview-container webview {
-            width: 100%;
-            height: 100%;
-        }
-        
-        /* 右侧功能区 */
-        .sidebar {
-            width: 320px;
-            height: 100vh;
-            background: linear-gradient(180deg, #f5f5f5 0%, #eeeeee 100%);
-            border-left: 1px solid #ddd;
-            padding: 15px;
-            overflow-y: auto;
-            box-sizing: border-box;
-        }
-        
-        /* 功能区标题 */
-        .sidebar h2 {
-            margin-top: 0;
-            margin-bottom: 15px;
-            color: #444;
-            font-size: 16px;
-            font-weight: bold;
-            border-bottom: 2px solid #4CAF50;
-            padding-bottom: 10px;
-            text-align: center;
-        }
-        
-        /* 功能按钮容器 */
-        .button-container {
-            margin-top: 15px;
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 8px;
-        }
-        
-        /* 功能按钮样式 */
-        .function-button {
-            display: block;
-            width: 100%;
-            padding: 10px 8px;
-            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
-            color: white;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 13px;
-            font-weight: bold;
-            transition: all 0.3s ease;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        
-        /* 按钮悬停效果 */
-        .function-button:hover {
-            background: linear-gradient(135deg, #45a049 0%, #3e8e41 100%);
-            transform: translateY(-1px);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
-        }
-        
-        /* 按钮点击效果 */
-        .function-button:active {
-            transform: translateY(0);
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        
-        /* 主要功能按钮（占满整行） */
-        .function-button.primary {
-            grid-column: 1 / -1;
-            padding: 12px;
-            font-size: 14px;
-            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a5a 100%);
-        }
-        
-        .function-button.primary:hover {
-            background: linear-gradient(135deg, #ee5a5a 0%, #d64545 100%);
-        }
-        
-        /* 配置按钮样式 */
-        .function-button.config {
-            background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%);
-            font-size: 11px;
-            padding: 6px 4px;
-        }
-        
-        .function-button.config:hover {
-            background: linear-gradient(135deg, #1976D2 0%, #1565C0 100%);
-        }
-
-        /* 退出账号按钮样式 */
-        .function-button.logout {
-            background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
-        }
-
-        .function-button.logout:hover {
-            background: linear-gradient(135deg, #f57c00 0%, #e65100 100%);
-        }
-
-        /* 调试模式按钮样式 */
-        .function-button.debug {
-            background: linear-gradient(135deg, #9c27b0 0%, #7b1fa2 100%);
-        }
-
-        .function-button.debug:hover {
-            background: linear-gradient(135deg, #7b1fa2 0%, #6a1b9a 100%);
-        }
-
-        /* 说明文本 */
-        .description {
-            margin-top: 15px;
-            font-size: 12px;
-            color: #666;
-            line-height: 1.4;
-            background: linear-gradient(135deg, #fafafa 0%, #f5f5f5 100%);
-            padding: 10px;
-            border-radius: 6px;
-            border: 1px solid #e8e8e8;
-        }
-        
-        .description-toggle {
-            margin: 0;
-            font-weight: bold;
-            color: #555;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-        
-        #description-icon {
-            font-size: 10px;
-            color: #999;
-        }
-        
-        #description-content {
-            margin-top: 8px;
-            padding-left: 16px;
-        }
-        
-        #description-content p {
-            margin: 4px 0;
-            position: relative;
-        }
-        
-        #description-content p::before {
-            content: "•";
-            position: absolute;
-            left: -12px;
-            color: #4CAF50;
-        }
-        
-        /* 坐标显示区域 */
-        .coordinate-display {
-            margin-top: 15px;
-            padding: 12px;
-            background: linear-gradient(135deg, #f9f9f9 0%, #f0f0f0 100%);
-            border: 1px solid #e0e0e0;
-            border-radius: 8px;
-            font-size: 12px;
-            color: #333;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-        }
-        
-        .coordinate-display h3 {
-            margin-top: 0;
-            margin-bottom: 10px;
-            font-size: 13px;
-            color: #555;
-            border-bottom: 1px solid #e0e0e0;
-            padding-bottom: 8px;
-        }
-        
-        .coordinate-display p {
-            margin: 6px 0;
-            display: flex;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 4px;
-        }
-        
-        /* 坐标输入框样式 */
-        .coordinate-display input[type="number"] {
-            width: 50px;
-            padding: 4px 6px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            font-size: 12px;
-            text-align: center;
-        }
-        
-        .coordinate-display input[type="number"]:focus {
-            outline: none;
-            border-color: #4CAF50;
-            box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.2);
-        }
-        
-        /* 坐标标签 */
-        .coord-label {
-            font-weight: bold;
-            color: #666;
-            min-width: 20px;
-        }
-        
-        /* 坐标值显示 */
-        .coord-value {
-            font-family: monospace;
-            color: #2196F3;
-            font-weight: bold;
-        }
-        
-        /* 状态标签 */
-        .status-badge {
-            display: inline-block;
-            padding: 2px 8px;
-            border-radius: 12px;
-            font-size: 11px;
-            font-weight: bold;
-        }
-        
-        .status-badge.pending {
-            background-color: #ffeb3b;
-            color: #f57f17;
-        }
-        
-        .status-badge.selected {
-            background-color: #4CAF50;
-            color: white;
-        }
-        
-        /* 坐标配置项 */
-        .coord-config-item {
-            margin-bottom: 10px;
-            padding: 10px;
-            background: rgba(255, 255, 255, 0.6);
-            border-radius: 6px;
-            border: 1px solid #e0e0e0;
-        }
-        
-        .coord-config-item:last-child {
-            margin-bottom: 0;
-        }
-        
-        /* 坐标配置头部（类型名称 + 按钮） */
-        .coord-config-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 6px;
-        }
-        
-        /* 坐标配置名称 */
-        .coord-config-name {
-            font-weight: bold;
-            color: #555;
-            font-size: 13px;
-            white-space: nowrap;
-        }
-        
-        /* 坐标配置数值区域 */
-        .coord-config-values {
-            display: flex;
-            gap: 20px;
-            padding-top: 8px;
-            border-top: 1px dashed #ddd;
-        }
-        
-        /* 坐标输入组 */
-        .coord-input-group {
-            display: flex;
-            align-items: center;
-            gap: 3px;
-            flex: 1;
-        }
-        
-        /* 坐标配置中的输入框 */
-        .coord-config-values input[type="number"] {
-            width: 45px;
-            padding: 3px 4px;
-            font-size: 12px;
-        }
-        
-        /* 坐标单位 */
-        
-        /* ==================== 折叠面板样式 ==================== */
-        
-        /* 折叠面板容器 */
-        .collapsible-section {
-            margin-bottom: 10px;
-            border: 1px solid #e0e0e0;
-            border-radius: 8px;
-            overflow: hidden;
-            background: rgba(255, 255, 255, 0.8);
-        }
-        
-        /* 折叠面板头部 */
-        .collapsible-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 10px 12px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            cursor: pointer;
-            user-select: none;
-            transition: all 0.2s ease;
-        }
-        
-        .collapsible-header:hover {
-            background: linear-gradient(135deg, #5a6fd6 0%, #6a4190 100%);
-        }
-        
-        .collapsible-header:active {
-            transform: scale(0.98);
-        }
-        
-        /* 折叠面板标题 */
-        .collapsible-title {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-weight: bold;
-            font-size: 13px;
-        }
-        
-        .collapsible-title::before {
-            content: '';
-            width: 4px;
-            height: 16px;
-            background: rgba(255, 255, 255, 0.8);
-            border-radius: 2px;
-        }
-        
-        /* 折叠图标 */
-        .collapsible-icon {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 24px;
-            height: 24px;
-            background: rgba(255, 255, 255, 0.2);
-            border-radius: 50%;
-            transition: transform 0.3s ease;
-        }
-        
-        .collapsible-icon::after {
-            content: '▼';
-            font-size: 10px;
-        }
-        
-        .collapsible-section.collapsed .collapsible-icon {
-            transform: rotate(-90deg);
-        }
-        
-        /* 折叠面板内容 */
-        .collapsible-content {
-            max-height: 2000px;
-            overflow: hidden;
-            transition: max-height 0.4s ease-out, padding 0.3s ease;
-            padding: 12px;
-        }
-        
-        .collapsible-section.collapsed .collapsible-content {
-            max-height: 0;
-            padding: 0 12px;
-        }
-        
-        /* 折叠面板展开时的动画 */
-        .collapsible-content-inner {
-            opacity: 1;
-            transition: opacity 0.3s ease;
-        }
-        
-        .collapsible-section.collapsed .collapsible-content-inner {
-            opacity: 0;
-        }
-        
-        /* 不同类型折叠面板的颜色主题 */
-        .collapsible-section.primary .collapsible-header {
-            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
-        }
-        
-        .collapsible-section.primary .collapsible-header:hover {
-            background: linear-gradient(135deg, #43a047 0%, #3d8b40 100%);
-        }
-        
-        .collapsible-section.secondary .collapsible-header {
-            background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%);
-        }
-        
-        .collapsible-section.secondary .collapsible-header:hover {
-            background: linear-gradient(135deg, #1e88e5 0%, #1565c0 100%);
-        }
-        
-        .collapsible-section.advanced .collapsible-header {
-            background: linear-gradient(135deg, #FF9800 0%, #F57C00 100%);
-        }
-        
-        .collapsible-section.advanced .collapsible-header:hover {
-            background: linear-gradient(135deg, #f57c00 0%, #e65100 100%);
-        }
-        
-        /* 折叠面板内的配置项 */
-        .collapsible-content .coord-config-item {
-            background: rgba(255, 255, 255, 0.9);
-        }
-        
-        /* 快捷操作提示 */
-        .collapse-hint {
-            font-size: 11px;
-            color: rgba(255, 255, 255, 0.7);
-            margin-left: 8px;
-        }
-        
-        /* 展开状态指示器 */
-        .expand-indicator {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            padding: 2px 8px;
-            background: rgba(255, 255, 255, 0.2);
-            border-radius: 10px;
-            font-size: 10px;
-        }
-        
-        .expand-indicator .count {
-            font-weight: bold;
-        }
-        
-        /* 坐标单位 */
-        .coord-unit {
-            font-size: 11px;
-            color: #888;
-            margin-left: 2px;
-        }
-        
-        /* 配置按钮在坐标配置中的样式 */
-        .coord-config-header .function-button.config {
-            width: auto;
-            min-width: 28px;
-            padding: 2px 5px;
-            font-size: 10px;
-            height: 20px;
-            line-height: 1;
-            border-radius: 3px;
-            margin-left: 8px;
-        }
-        
-        /* 日志区域 */
-        .log-area {
-            margin-top: 15px;
-            height: 280px;
-            background: linear-gradient(135deg, #fafafa 0%, #f5f5f5 100%);
-            border: 1px solid #e0e0e0;
-            border-radius: 8px;
-            padding: 12px;
-            box-sizing: border-box;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-        }
-        
-        /* 日志标题 */
-        .log-area h3 {
-            margin-top: 0;
-            margin-bottom: 10px;
-            color: #555;
-            font-size: 13px;
-            border-bottom: 1px solid #e0e0e0;
-            padding-bottom: 8px;
-        }
-        
-        /* 日志内容 */
-        #log-content {
-            height: calc(100% - 20px);
-            overflow-y: auto;
-            overflow-x: hidden;
-            font-size: 12px;
-            line-height: 1.4;
-            color: #333;
-            font-family: monospace;
-            -webkit-overflow-scrolling: touch;
-            scroll-behavior: smooth;
-            word-wrap: break-word;
-            white-space: pre-wrap;
-        }
-        
-        /* 日志内容滑动条样式 */
-        #log-content::-webkit-scrollbar {
-            width: 6px;
-        }
-        
-        #log-content::-webkit-scrollbar-track {
-            background: #f1f1f1;
-            border-radius: 3px;
-        }
-        
-        #log-content::-webkit-scrollbar-thumb {
-            background: #c1c1c1;
-            border-radius: 3px;
-        }
-        
-        #log-content::-webkit-scrollbar-thumb:hover {
-            background: #a8a8a8;
-        }
-        
-        /* 日志条目 */
-        .log-entry {
-            margin-bottom: 5px;
-            padding: 2px 0;
-            border-bottom: 1px solid #eee;
-        }
-        
-        /* 时间戳 */
-        .log-time {
-            color: #999;
-            margin-right: 10px;
-        }
-        
-        /* 日志类型样式 */
-        .log-info {
-            color: #333;
-        }
-        
-        .log-success {
-            color: #4CAF50;
-        }
-        
-        .log-error {
-            color: #f44336;
-        }
-    </style>
+    <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
     <!-- 主容器 -->
@@ -2063,14 +1512,29 @@
                     await sleep(2000);
                     if (checkStopRequested()) return;
 
-                    // 检测当前状态
+                    // 重新检测状态
                     const recheckState = await detectCurrentRuinsState();
                     if (checkStopRequested()) return;
 
-                    if (recheckState !== '未知') {
+                    // 增强检测返回"未知"时，用简单版像素检测兜底
+                    let effectiveState = recheckState;
+                    if (recheckState === '未知') {
+                        log('增强检测返回未知，等待5秒后尝试简单像素检测...', 'info');
+                        try {
+                            const captured = await captureAndSave('recheck_unknown');
+                            const simpleState = detectGameState(captured.bitmap, captured.width, captured.height);
+                            if (simpleState !== '未知') {
+                                log(`简单像素检测到: ${simpleState}，采用该结果`, 'info');
+                                effectiveState = simpleState;
+                            }
+                        } catch (e) { /* 兜底检测失败不影响 */ }
+                    }
+
+                    if (effectiveState === '准备' || effectiveState === '地图' || effectiveState === '选择') {
                         needGoToRuins = false;
                     } else {
-                        log('状态为未知，再等待一轮...', 'warning');
+                        // 未知/其他状态，再等一轮
+                        log('状态仍为未知，再等待一轮...', 'warning');
                         await sleep(2000);
                         const thirdCheck = await detectCurrentRuinsState();
                         if (checkStopRequested()) return;
@@ -3025,14 +2489,15 @@
                 log(`[采样像素] ${debugSamples.slice(0, 8).join(' | ')}`, 'info');
             }
 
-            // 状态检测优先级：战斗 > 失败 > 胜利完成 > 准备(弹窗) > 选择 > 地图
+            // 状态检测优先级：战斗 > 失败 > 选择 > 准备 > 弹窗 > 地图
             if (redRatio > 0.15) return '战斗';
+            // 失败检测：战斗结束后可能直接进入失败界面（无血条但有红色标题）
             else if (detectFailureScreen(bitmap, width, height)) return '失败';
-            // 胜利完成：中央偏上粉红色标题 + 中下金色按钮
-            else if (detectVictoryInBitmap(bitmap, width, height)) return '胜利完成';
-            else if (isPrepareScreen) return '准备';
-            else if (detectPopupOverlay(bitmap, width, height)) return '准备';
+            // 选择检测（精确卡片检测）在准备之前，战斗后的选择界面也有遮罩
             else if (detectSelectionState(bitmap, width, height) === '选择') return '选择';
+            else if (isPrepareScreen) return '准备';
+            // 弹窗检测：如果有蓝灰色弹窗框，视为准备状态
+            else if (detectPopupOverlay(bitmap, width, height)) return '准备';
             else if (yellowRatio > 0.02) return '地图';
             else return '未知';
         }
@@ -3049,22 +2514,20 @@
          */
         async function detectCurrentRuinsState() {
             try {
-                // 直接使用像素检测（简单可靠）
-                const image = await gameWebview.capturePage();
-                const size = image.getSize();
-                const bitmap = image.toBitmap();
-                const state = detectGameState(bitmap, size.width, size.height);
-                log(`状态检测: ${state}`, state === '未知' ? 'warning' : 'info');
-                // 未知状态时保存截图用于千问VL校准
-                if (state === '未知') {
-                    const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-                    const fs = require('fs');
-                    const path = require('path');
-                    const png = image.toPNG();
-                    fs.writeFileSync(path.join(__dirname, 'JT', `unknown_${ts}.png`), png);
-                    log('[调试] 已保存未知状态截图用于校准', 'info');
+                // 使用增强版状态检测系统
+                const result = await smartDetectState();
+                
+                // 记录详细日志
+                if (result.confidence >= STATE_DETECTION_CONFIG.highConfidence) {
+                    log(`状态检测（高置信度）: ${result.state} (${(result.confidence * 100).toFixed(1)}%)`, 'success');
+                } else if (result.confidence >= STATE_DETECTION_CONFIG.minConfidence) {
+                    log(`状态检测（中等置信度）: ${result.state} (${(result.confidence * 100).toFixed(1)}%)`, 'info');
+                } else {
+                    log(`状态检测（低置信度）: ${result.state} (${(result.confidence * 100).toFixed(1)}%)`, 'warning');
                 }
-                return state;
+                
+                return result.state;
+
             } catch (error) {
                 log('检测遗迹状态时出错: ' + error.message, 'error');
                 return '未知';
@@ -3268,40 +2731,7 @@
         /**
          * 分析所有特征
          */
-        // 同步检测胜利完成界面（用于detectGameState）
-        function detectVictoryInBitmap(bitmap, width, height) {
-            // 检测粉红色标题区域
-            const xStart = Math.floor(width * 0.3);
-            const xEnd = Math.floor(width * 0.7);
-            const yStart = Math.floor(height * 0.2);
-            const yEnd = Math.floor(height * 0.4);
-            let pinkCount = 0;
-            const sampleCount = 40;
-            for (let i = 0; i < sampleCount; i++) {
-                const x = xStart + Math.floor(Math.random() * (xEnd - xStart));
-                const y = yStart + Math.floor(Math.random() * (yEnd - yStart));
-                const idx = (y * width + x) * 4;
-                const p = getPixel(bitmap, idx);
-                if (p.r > 200 && p.g > 80 && p.g < 150 && p.b > 100 && p.b < 180) pinkCount++;
-            }
-            if (pinkCount / sampleCount < 0.25) return false;
-            // 检测金色确定按钮区域
-            const bxStart = Math.floor(width * 0.30);
-            const bxEnd = Math.floor(width * 0.70);
-            const byStart = Math.floor(height * 0.52);
-            const byEnd = Math.floor(height * 0.67);
-            let goldCount = 0;
-            for (let i = 0; i < sampleCount; i++) {
-                const x = bxStart + Math.floor(Math.random() * (bxEnd - bxStart));
-                const y = byStart + Math.floor(Math.random() * (byEnd - byStart));
-                const idx = (y * width + x) * 4;
-                const p = getPixel(bitmap, idx);
-                if (p.r > 200 && p.g > 160 && p.b < 120) goldCount++;
-            }
-            return goldCount / sampleCount > 0.3;
-        }
-
-        // 千问VL状态识别（仅开发调试）
+        // [开发辅助] 千问VL状态识别 - 仅用于开发调试，不作为运行时兜底
         // 使用方法：在控制台调用 detectStateWithVL(await gameWebview.capturePage())
         async function detectStateWithVL(nativeImage) {
             try {
@@ -4610,10 +4040,15 @@
                         case '失败':
                             if (checkStopRequested()) return;
                             log('检测到战斗失败界面，点击返回...', 'info');
-                            // 失败界面点击返回按钮
-                            const failImg = await gameWebview.capturePage();
-                            const failSz = failImg.getSize();
-                            await clickAtPosition(failSz.width * 0.5, failSz.height * 0.85);
+                            // 失败界面通常有返回/重试按钮，点击屏幕中央偏下
+                            const failSize = await gameWebview.executeJavaScript(`(function() {
+                                const canvas = document.querySelector('canvas');
+                                if (canvas) {
+                                    return { width: canvas.width, height: canvas.height };
+                                }
+                                return { width: window.innerWidth, height: window.innerHeight };
+                            })()`);
+                            await clickAtPosition(failSize.width * 0.5, failSize.height * 0.85);
                             await sleep(2000);
                             break;
 
@@ -5953,9 +5388,10 @@
                 } else if (hasAgeTip && !hasGameColors) {
                     status = 'LOADING';
                     statusText = '加载中（检测到适龄提示）';
-                } else if (hasGameColors && !hasQRCode) {
+                } else if (!hasQRCode) {
+                    // 没有检测到二维码，认为是登录成功（扫码后二维码会消失）
                     status = 'LOGGED_IN';
-                    statusText = '登录成功（检测到游戏界面）';
+                    statusText = '登录成功（未检测到二维码）';
                 } else {
                     status = 'UNKNOWN';
                     statusText = '状态未知';
@@ -5968,12 +5404,22 @@
                 
                 // 如果登录成功，触发自动全屏
                 if (status === 'LOGGED_IN') {
-                    log('登录成功（检测到游戏界面），准备触发全屏', 'success');
+                    log('登录成功（检测到游戏界面），准备刷新页面并触发全屏', 'success');
                     // 移除二维码居中样式
                     removeQRCodeCenterStyle();
-                    triggerFullscreen();
-                    // 标记已经登录成功并全屏
-                    hasLoggedInAndFullscreen = true;
+                    // 刷新页面以关闭二维码弹窗
+                    setTimeout(() => {
+                        if (gameWebview) {
+                            gameWebview.reload();
+                            log('页面已刷新，关闭二维码弹窗', 'info');
+                        }
+                    }, 500);
+                    // 延迟触发全屏，等待页面刷新完成
+                    setTimeout(() => {
+                        triggerFullscreen();
+                        // 标记已经登录成功并全屏
+                        hasLoggedInAndFullscreen = true;
+                    }, 2000);
                 }
                 
                 return status;

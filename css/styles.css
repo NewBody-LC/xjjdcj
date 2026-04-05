@@ -1,0 +1,548 @@
+/* 重置默认样式 */
+body {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    height: 100vh;
+    font-family: Arial, sans-serif;
+}
+
+/* 主容器布局 */
+.main-container {
+    display: flex;
+    height: 100vh;
+}
+
+/* 左侧webview区域 */
+.webview-container {
+    flex: 1;
+    height: 100vh;
+    position: relative;
+    overflow: hidden;
+}
+
+/* webview样式 */
+.webview-container webview {
+    width: 100%;
+    height: 100%;
+}
+
+/* 右侧功能区 */
+.sidebar {
+    width: 320px;
+    height: 100vh;
+    background: linear-gradient(180deg, #f5f5f5 0%, #eeeeee 100%);
+    border-left: 1px solid #ddd;
+    padding: 15px;
+    overflow-y: auto;
+    box-sizing: border-box;
+}
+
+/* 功能区标题 */
+.sidebar h2 {
+    margin-top: 0;
+    margin-bottom: 15px;
+    color: #444;
+    font-size: 16px;
+    font-weight: bold;
+    border-bottom: 2px solid #4CAF50;
+    padding-bottom: 10px;
+    text-align: center;
+}
+
+/* 功能按钮容器 */
+.button-container {
+    margin-top: 15px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+/* 功能按钮样式 */
+.function-button {
+    display: block;
+    width: 100%;
+    padding: 10px 8px;
+    background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: bold;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* 按钮悬停效果 */
+.function-button:hover {
+    background: linear-gradient(135deg, #45a049 0%, #3e8e41 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+/* 按钮点击效果 */
+.function-button:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* 主要功能按钮（占满整行） */
+.function-button.primary {
+    grid-column: 1 / -1;
+    padding: 12px;
+    font-size: 14px;
+    background: linear-gradient(135deg, #ff6b6b 0%, #ee5a5a 100%);
+}
+
+.function-button.primary:hover {
+    background: linear-gradient(135deg, #ee5a5a 0%, #d64545 100%);
+}
+
+/* 配置按钮样式 */
+.function-button.config {
+    background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%);
+    font-size: 11px;
+    padding: 6px 4px;
+}
+
+.function-button.config:hover {
+    background: linear-gradient(135deg, #1976D2 0%, #1565C0 100%);
+}
+
+/* 退出账号按钮样式 */
+.function-button.logout {
+    background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
+}
+
+.function-button.logout:hover {
+    background: linear-gradient(135deg, #f57c00 0%, #e65100 100%);
+}
+
+/* 调试模式按钮样式 */
+.function-button.debug {
+    background: linear-gradient(135deg, #9c27b0 0%, #7b1fa2 100%);
+}
+
+.function-button.debug:hover {
+    background: linear-gradient(135deg, #7b1fa2 0%, #6a1b9a 100%);
+}
+
+/* 说明文本 */
+.description {
+    margin-top: 15px;
+    font-size: 12px;
+    color: #666;
+    line-height: 1.4;
+    background: linear-gradient(135deg, #fafafa 0%, #f5f5f5 100%);
+    padding: 10px;
+    border-radius: 6px;
+    border: 1px solid #e8e8e8;
+}
+
+.description-toggle {
+    margin: 0;
+    font-weight: bold;
+    color: #555;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+#description-icon {
+    font-size: 10px;
+    color: #999;
+}
+
+#description-content {
+    margin-top: 8px;
+    padding-left: 16px;
+}
+
+#description-content p {
+    margin: 4px 0;
+    position: relative;
+}
+
+#description-content p::before {
+    content: "•";
+    position: absolute;
+    left: -12px;
+    color: #4CAF50;
+}
+
+/* 坐标显示区域 */
+.coordinate-display {
+    margin-top: 15px;
+    padding: 12px;
+    background: linear-gradient(135deg, #f9f9f9 0%, #f0f0f0 100%);
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 12px;
+    color: #333;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+.coordinate-display h3 {
+    margin-top: 0;
+    margin-bottom: 10px;
+    font-size: 13px;
+    color: #555;
+    border-bottom: 1px solid #e0e0e0;
+    padding-bottom: 8px;
+}
+
+.coordinate-display p {
+    margin: 6px 0;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+/* 坐标输入框样式 */
+.coordinate-display input[type="number"] {
+    width: 50px;
+    padding: 4px 6px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 12px;
+    text-align: center;
+}
+
+.coordinate-display input[type="number"]:focus {
+    outline: none;
+    border-color: #4CAF50;
+    box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.2);
+}
+
+/* 坐标标签 */
+.coord-label {
+    font-weight: bold;
+    color: #666;
+    min-width: 20px;
+}
+
+/* 坐标值显示 */
+.coord-value {
+    font-family: monospace;
+    color: #2196F3;
+    font-weight: bold;
+}
+
+/* 状态标签 */
+.status-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: bold;
+}
+
+.status-badge.pending {
+    background-color: #ffeb3b;
+    color: #f57f17;
+}
+
+.status-badge.selected {
+    background-color: #4CAF50;
+    color: white;
+}
+
+/* 坐标配置项 */
+.coord-config-item {
+    margin-bottom: 10px;
+    padding: 10px;
+    background: rgba(255, 255, 255, 0.6);
+    border-radius: 6px;
+    border: 1px solid #e0e0e0;
+}
+
+.coord-config-item:last-child {
+    margin-bottom: 0;
+}
+
+/* 坐标配置头部（类型名称 + 按钮） */
+.coord-config-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+}
+
+/* 坐标配置名称 */
+.coord-config-name {
+    font-weight: bold;
+    color: #555;
+    font-size: 13px;
+    white-space: nowrap;
+}
+
+/* 坐标配置数值区域 */
+.coord-config-values {
+    display: flex;
+    gap: 20px;
+    padding-top: 8px;
+    border-top: 1px dashed #ddd;
+}
+
+/* 坐标输入组 */
+.coord-input-group {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    flex: 1;
+}
+
+/* 坐标配置中的输入框 */
+.coord-config-values input[type="number"] {
+    width: 45px;
+    padding: 3px 4px;
+    font-size: 12px;
+}
+
+/* ==================== 折叠面板样式 ==================== */
+
+/* 折叠面板容器 */
+.collapsible-section {
+    margin-bottom: 10px;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.8);
+}
+
+/* 折叠面板头部 */
+.collapsible-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 12px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    cursor: pointer;
+    user-select: none;
+    transition: all 0.2s ease;
+}
+
+.collapsible-header:hover {
+    background: linear-gradient(135deg, #5a6fd6 0%, #6a4190 100%);
+}
+
+.collapsible-header:active {
+    transform: scale(0.98);
+}
+
+/* 折叠面板标题 */
+.collapsible-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: bold;
+    font-size: 13px;
+}
+
+.collapsible-title::before {
+    content: '';
+    width: 4px;
+    height: 16px;
+    background: rgba(255, 255, 255, 0.8);
+    border-radius: 2px;
+}
+
+/* 折叠图标 */
+.collapsible-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 50%;
+    transition: transform 0.3s ease;
+}
+
+.collapsible-icon::after {
+    content: '▼';
+    font-size: 10px;
+}
+
+.collapsible-section.collapsed .collapsible-icon {
+    transform: rotate(-90deg);
+}
+
+/* 折叠面板内容 */
+.collapsible-content {
+    max-height: 2000px;
+    overflow: hidden;
+    transition: max-height 0.4s ease-out, padding 0.3s ease;
+    padding: 12px;
+}
+
+.collapsible-section.collapsed .collapsible-content {
+    max-height: 0;
+    padding: 0 12px;
+}
+
+/* 折叠面板展开时的动画 */
+.collapsible-content-inner {
+    opacity: 1;
+    transition: opacity 0.3s ease;
+}
+
+.collapsible-section.collapsed .collapsible-content-inner {
+    opacity: 0;
+}
+
+/* 不同类型折叠面板的颜色主题 */
+.collapsible-section.primary .collapsible-header {
+    background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+}
+
+.collapsible-section.primary .collapsible-header:hover {
+    background: linear-gradient(135deg, #43a047 0%, #3d8b40 100%);
+}
+
+.collapsible-section.secondary .collapsible-header {
+    background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%);
+}
+
+.collapsible-section.secondary .collapsible-header:hover {
+    background: linear-gradient(135deg, #1e88e5 0%, #1565c0 100%);
+}
+
+.collapsible-section.advanced .collapsible-header {
+    background: linear-gradient(135deg, #FF9800 0%, #F57C00 100%);
+}
+
+.collapsible-section.advanced .collapsible-header:hover {
+    background: linear-gradient(135deg, #f57c00 0%, #e65100 100%);
+}
+
+/* 折叠面板内的配置项 */
+.collapsible-content .coord-config-item {
+    background: rgba(255, 255, 255, 0.9);
+}
+
+/* 快捷操作提示 */
+.collapse-hint {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.7);
+    margin-left: 8px;
+}
+
+/* 展开状态指示器 */
+.expand-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 10px;
+    font-size: 10px;
+}
+
+.expand-indicator .count {
+    font-weight: bold;
+}
+
+/* 坐标单位 */
+.coord-unit {
+    font-size: 11px;
+    color: #888;
+    margin-left: 2px;
+}
+
+/* 配置按钮在坐标配置中的样式 */
+.coord-config-header .function-button.config {
+    width: auto;
+    min-width: 28px;
+    padding: 2px 5px;
+    font-size: 10px;
+    height: 20px;
+    line-height: 1;
+    border-radius: 3px;
+    margin-left: 8px;
+}
+
+/* 日志区域 */
+.log-area {
+    margin-top: 15px;
+    height: 280px;
+    background: linear-gradient(135deg, #fafafa 0%, #f5f5f5 100%);
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 12px;
+    box-sizing: border-box;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+/* 日志标题 */
+.log-area h3 {
+    margin-top: 0;
+    margin-bottom: 10px;
+    color: #555;
+    font-size: 13px;
+    border-bottom: 1px solid #e0e0e0;
+    padding-bottom: 8px;
+}
+
+/* 日志内容 */
+#log-content {
+    height: calc(100% - 20px);
+    overflow-y: auto;
+    overflow-x: hidden;
+    font-size: 12px;
+    line-height: 1.4;
+    color: #333;
+    font-family: monospace;
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+    word-wrap: break-word;
+    white-space: pre-wrap;
+}
+
+/* 日志内容滑动条样式 */
+#log-content::-webkit-scrollbar {
+    width: 6px;
+}
+
+#log-content::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 3px;
+}
+
+#log-content::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 3px;
+}
+
+#log-content::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+
+/* 日志条目 */
+.log-entry {
+    margin-bottom: 5px;
+    padding: 2px 0;
+    border-bottom: 1px solid #eee;
+}
+
+/* 时间戳 */
+.log-time {
+    color: #999;
+    margin-right: 10px;
+}
+
+/* 日志类型样式 */
+.log-info {
+    color: #333;
+}
+
+.log-success {
+    color: #4CAF50;
+}
+
+.log-error {
+    color: #f44336;
+}
