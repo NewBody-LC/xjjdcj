@@ -3039,8 +3039,10 @@
                 log(`[采样像素] ${debugSamples.slice(0, 8).join(' | ')}`, 'info');
             }
 
-            // 状态检测优先级：战斗 > 选择 > 准备 > 弹窗 > 地图
+            // 状态检测优先级：战斗 > 失败 > 选择 > 准备 > 弹窗 > 地图
             if (redRatio > 0.15) return '战斗';
+            // 失败检测：战斗结束后可能直接进入失败界面（无血条但有红色标题）
+            else if (detectFailureScreen(bitmap, width, height)) return '失败';
             // 选择检测（精确卡片检测）在准备之前，战斗后的选择界面也有遮罩
             else if (detectSelectionState(bitmap, width, height) === '选择') return '选择';
             else if (isPrepareScreen) return '准备';
@@ -3139,6 +3141,81 @@
                 return '未知';
             } catch (error) {
                 return '未知';
+            }
+        }
+
+        /**
+         * 检测战斗失败界面
+         * 特征：屏幕中央有红色标题区域，整体偏暗，底部有按钮
+         * 与胜利界面区别：失败标题偏纯红色，胜利标题偏粉红色
+         */
+        function detectFailureScreen(bitmap, width, height) {
+            try {
+                // 检测1：屏幕中央偏上是否有红色/深红色标题区域
+                const titleXStart = Math.floor(width * 0.30);
+                const titleXEnd = Math.floor(width * 0.70);
+                const titleYStart = Math.floor(height * 0.25);
+                const titleYEnd = Math.floor(height * 0.42);
+                const gridSize = 3;
+
+                let redPixels = 0, darkPixels = 0, totalPixels = 0;
+
+                for (let y = titleYStart; y < titleYEnd; y += gridSize) {
+                    for (let x = titleXStart; x < titleXEnd; x += gridSize) {
+                        const idx = (y * width + x) * 4;
+                        const p = getPixel(bitmap, idx);
+                        const r = p.r, g = p.g, b = p.b;
+                        const brightness = (r + g + b) / 3;
+                        totalPixels++;
+                        // 红色像素（失败标题是红色系，区别于胜利的粉红色）
+                        if (r > 160 && r > g + 60 && r > b + 60 && g < 120) {
+                            redPixels++;
+                        }
+                        if (brightness < 60) {
+                            darkPixels++;
+                        }
+                    }
+                }
+
+                const redRatio = redPixels / Math.max(1, totalPixels);
+                const darkRatio = darkPixels / Math.max(1, totalPixels);
+
+                // 检测2：屏幕下半部分是否有按钮区域（黄/灰色按钮）
+                const btnXStart = Math.floor(width * 0.35);
+                const btnXEnd = Math.floor(width * 0.65);
+                const btnYStart = Math.floor(height * 0.75);
+                const btnYEnd = Math.floor(height * 0.90);
+
+                let btnPixels = 0, btnTotal = 0;
+                for (let y = btnYStart; y < btnYEnd; y += gridSize) {
+                    for (let x = btnXStart; x < btnXEnd; x += gridSize) {
+                        const idx = (y * width + x) * 4;
+                        const p = getPixel(bitmap, idx);
+                        const r = p.r, g = p.g, b = p.b;
+                        const brightness = (r + g + b) / 3;
+                        btnTotal++;
+                        // 黄色/灰色按钮（返回或重试按钮）
+                        if ((r > 180 && g > 140 && b < 120) || (brightness > 140 && brightness < 220)) {
+                            btnPixels++;
+                        }
+                    }
+                }
+                const btnRatio = btnPixels / Math.max(1, btnTotal);
+
+                const hasRedTitle = redRatio > 0.15;
+                const hasDimBackground = darkRatio > 0.25;
+                const hasBottomButton = btnRatio > 0.20;
+
+                log(`[失败检测] 红色:${(redRatio*100).toFixed(1)}% 暗色:${(darkRatio*100).toFixed(1)}% 按钮:${(btnRatio*100).toFixed(1)}% -> ${hasRedTitle && hasBottomButton ? '失败' : '非失败'}`, 'info');
+
+                // 需要红色标题 + 底部按钮（暗背景作为辅助）
+                if (hasRedTitle && hasBottomButton) {
+                    return true;
+                }
+
+                return false;
+            } catch (error) {
+                return false;
             }
         }
 
