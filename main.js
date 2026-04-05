@@ -467,6 +467,91 @@ ipcMain.handle('execute-in-weekly-gift-window', async (event, script) => {
   }
 });
 
+// ==================== 调试模式窗口 ====================
+
+// 存储调试窗口引用
+let debugWindow = null;
+
+/**
+ * 创建调试窗口（直接加载游戏页面，便于使用开发者工具）
+ * @param {string} url - 游戏页面URL
+ */
+function createDebugWindow(url) {
+  // 如果已存在窗口，先关闭
+  if (debugWindow && !debugWindow.isDestroyed()) {
+    debugWindow.close();
+  }
+
+  // 创建调试窗口
+  debugWindow = new BrowserWindow({
+    width: 1200,
+    height: 800,
+    webPreferences: {
+      nodeIntegration: true,
+      contextIsolation: false,
+      webSecurity: false,
+      allowRunningInsecureContent: true,
+      enableRemoteModule: true,
+      // 设置Chrome浏览器的用户代理字符串
+      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    },
+    show: false,
+    title: '调试模式 - 小鸡舰队出击',
+    // 不置顶，允许被其他窗口覆盖
+    alwaysOnTop: false,
+    // 作为普通窗口，不参与焦点 steal
+    skipTaskbar: false
+  });
+
+  // 加载游戏页面
+  debugWindow.loadURL(url);
+
+  // 页面加载完成后显示并打开开发者工具
+  debugWindow.once('ready-to-show', () => {
+    debugWindow.show();
+    // 移除 focus() 调用，避免窗口抢夺焦点遮挡右键菜单
+    // debugWindow.focus();
+    // 自动打开开发者工具
+    debugWindow.webContents.openDevTools();
+  });
+
+  // 窗口关闭时清理引用
+  debugWindow.on('closed', () => {
+    debugWindow = null;
+    console.log('调试窗口已关闭');
+  });
+
+  return debugWindow.id;
+}
+
+// 注册IPC处理程序：创建调试窗口
+ipcMain.handle('create-debug-window', async (event, url) => {
+  try {
+    const gameUrl = url || 'https://www.wanyiwan.top/game/xjjdcj';
+    const windowId = createDebugWindow(gameUrl);
+    console.log('Created debug window:', windowId);
+    return { success: true, windowId };
+  } catch (error) {
+    console.error('Failed to create debug window:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// 注册IPC处理程序：关闭调试窗口
+ipcMain.handle('close-debug-window', async () => {
+  try {
+    if (debugWindow && !debugWindow.isDestroyed()) {
+      debugWindow.close();
+      debugWindow = null;
+      console.log('Debug window closed');
+    }
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to close debug window:', error);
+    return { success: false, error: error.message };
+  }
+});
+
 // 关闭所有窗口时退出应用（Windows和Linux）
 app.on('window-all-closed', function () {
   if (process.platform !== 'darwin') app.quit();

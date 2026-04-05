@@ -1,0 +1,239 @@
+{
+  "totalFiles": 13,
+  "categories": {
+    "buttons": [
+      {
+        "filename": "提取下一层、放弃挑战按钮.png",
+        "filepath": "f:\\code\\xjjdcj\\img\\提取下一层、放弃挑战按钮.png",
+        "keywords": [
+          "下一层",
+          "放弃挑战按钮"
+        ],
+        "category": "buttons"
+      },
+      {
+        "filename": "提取丢弃按钮.png",
+        "filepath": "f:\\code\\xjjdcj\\img\\提取丢弃按钮.png",
+        "keywords": [
+          "丢弃按钮"
+        ],
+        "category": "buttons"
+      },
+      {
+        "filename": "提取红色冒险按钮、舰队图标.png",
+        "filepath": "f:\\code\\xjjdcj\\img\\提取红色冒险按钮、舰队图标.png",
+        "keywords": [
+          "红色冒险按钮",
+          "舰队图标"
+        ],
+        "category": "buttons"
+      },
+      {
+        "filename": "提取胜利标题、确定按钮.png",
+        "filepath": "f:\\code\\xjjdcj\\img\\提取胜利标题、确定按钮.png",
+        "keywords": [
+          "胜利标题",
+          "确定按钮"
+        ],
+        "category": "buttons"
+      },
+      {
+        "filename": "结束商城购买确定按钮.png",
+        "filepath": "f:\\code\\xjjdcj\\img\\结束商城购买确定按钮.png",
+        "keywords": [
+          "结束商城购买确定按钮"
+        ],
+        "category": "buttons"
+      }
+    ],
+    "titles": [
+      {
+        "filename": "提取神器选择标题.png",
+        "filepath": "f:\\code\\xjjdcj\\img\\提取神器选择标题.png",
+        "keywords": [
+          "神器选择标题"
+        ],
+        "category": "titles"
+      },
+      {
+        "filename": "提取神圣羽毛标题.png",
+        "filepath": "f:\\code\\xjjdcj\\img\\提取神圣羽毛标题.png",
+        "keywords": [
+          "神圣羽毛标题"
+        ],
+        "category": "titles"
+      },
+      {
+        "filename": "提取稀有事件标题、事件选择窗体.png",
+        "filepath": "f:\\code\\xjjdcj\\img\\提取稀有事件标题、事件选择窗体.png",
+        "keywords": [
+          "稀有事件标题",
+          "事件选择窗体"
+        ],
+        "category": "titles"
+      },
+      {
+        "filename": "提取队长选择标题和角色位置标题.png",
+        "filepath": "f:\\code\\xjjdcj\\img\\提取队长选择标题和角色位置标题.png",
+        "keywords": [
+          "队长选择标题和角色位置标题"
+        ],
+        "category": "titles"
+      }
+    ],
+    "nodes": [
+      {
+        "filename": "提取节点选择、路线、黄色箭头.png",
+        "filepath": "f:\\code\\xjjdcj\\img\\提取节点选择、路线、黄色箭头.png",
+        "keywords": [
+          "节点选择",
+          "路线",
+          "黄色箭头"
+        ],
+        "category": "nodes"
+      },
+      {
+        "filename": "紫色BOSS节点.png",
+        "filepath": "f:\\code\\xjjdcj\\img\\紫色BOSS节点.png",
+        "keywords": [
+          "紫色BOSS节点"
+        ],
+        "category": "nodes"
+      },
+      {
+        "filename": "遗迹节点-挑战和放弃挑战.png",
+        "filepath": "f:\\code\\xjjdcj\\img\\遗迹节点-挑战和放弃挑战.png",
+        "keywords": [
+          "遗迹节点",
+          "挑战和放弃挑战"
+        ],
+        "category": "nodes"
+      }
+    ],
+    "events": [
+      {
+        "filename": "提取赛季事件、选择窗体.png",
+        "filepath": "f:\\code\\xjjdcj\\img\\提取赛季事件、选择窗体.png",
+        "keywords": [
+          "赛季事件",
+          "选择窗体"
+        ],
+        "category": "events"
+      }
+    ]
+  },
+  "templates": [
+    {
+      "filename": "提取下一层、放弃挑战按钮.png",
+      "filepath": "f:\\code\\xjjdcj\\img\\提取下一层、放弃挑战按钮.png",
+      "keywords": [
+        "下一层",
+        "放弃挑战按钮"
+      ],
+      "category": "buttons"
+    },
+    {
+      "filename": "提取丢弃按钮.png",
+      "filepath": "f:\\code\\xjjdcj\\img\\提取丢弃按钮.png",
+      "keywords": [
+        "丢弃按钮"
+      ],
+      "category": "buttons"
+    },
+    {
+      "filename": "提取神器选择标题.png",
+      "filepath": "f:\\code\\xjjdcj\\img\\提取神器选择标题.png",
+      "keywords": [
+        "神器选择标题"
+      ],
+      "category": "titles"
+    },
+    {
+      "filename": "提取神圣羽毛标题.png",
+      "filepath": "f:\\code\\xjjdcj\\img\\提取神圣羽毛标题.png",
+      "keywords": [
+        "神圣羽毛标题"
+      ],
+      "category": "titles"
+    },
+    {
+      "filename": "提取稀有事件标题、事件选择窗体.png",
+      "filepath": "f:\\code\\xjjdcj\\img\\提取稀有事件标题、事件选择窗体.png",
+      "keywords": [
+        "稀有事件标题",
+        "事件选择窗体"
+      ],
+      "category": "titles"
+    },
+    {
+      "filename": "提取红色冒险按钮、舰队图标.png",
+      "filepath": "f:\\code\\xjjdcj\\img\\提取红色冒险按钮、舰队图标.png",
+      "keywords": [
+        "红色冒险按钮",
+        "舰队图标"
+      ],
+      "category": "buttons"
+    },
+    {
+      "filename": "提取胜利标题、确定按钮.png",
+      "filepath": "f:\\code\\xjjdcj\\img\\提取胜利标题、确定按钮.png",
+      "keywords": [
+        "胜利标题",
+        "确定按钮"
+      ],
+      "category": "buttons"
+    },
+    {
+      "filename": "提取节点选择、路线、黄色箭头.png",
+      "filepath": "f:\\code\\xjjdcj\\img\\提取节点选择、路线、黄色箭头.png",
+      "keywords": [
+        "节点选择",
+        "路线",
+        "黄色箭头"
+      ],
+      "category": "nodes"
+    },
+    {
+      "filename": "提取赛季事件、选择窗体.png",
+      "filepath": "f:\\code\\xjjdcj\\img\\提取赛季事件、选择窗体.png",
+      "keywords": [
+        "赛季事件",
+        "选择窗体"
+      ],
+      "category": "events"
+    },
+    {
+      "filename": "提取队长选择标题和角色位置标题.png",
+      "filepath": "f:\\code\\xjjdcj\\img\\提取队长选择标题和角色位置标题.png",
+      "keywords": [
+        "队长选择标题和角色位置标题"
+      ],
+      "category": "titles"
+    },
+    {
+      "filename": "紫色BOSS节点.png",
+      "filepath": "f:\\code\\xjjdcj\\img\\紫色BOSS节点.png",
+      "keywords": [
+        "紫色BOSS节点"
+      ],
+      "category": "nodes"
+    },
+    {
+      "filename": "结束商城购买确定按钮.png",
+      "filepath": "f:\\code\\xjjdcj\\img\\结束商城购买确定按钮.png",
+      "keywords": [
+        "结束商城购买确定按钮"
+      ],
+      "category": "buttons"
+    },
+    {
+      "filename": "遗迹节点-挑战和放弃挑战.png",
+      "filepath": "f:\\code\\xjjdcj\\img\\遗迹节点-挑战和放弃挑战.png",
+      "keywords": [
+        "遗迹节点",
+        "挑战和放弃挑战"
+      ],
+      "category": "nodes"
+    }
+  ]
+}

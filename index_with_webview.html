@@ -1710,6 +1710,14 @@
                         console.log('ERROR: 屏蔽浏览器兼容性提示时出错: ' + e.message);
                     }
                 `);
+
+                // 自动触发一键遗迹（开发调试用，延迟20秒等游戏完全加载）
+                setTimeout(() => {
+                    log('[自动调试] 20秒后自动触发一键遗迹...', 'info');
+                    const btn = document.getElementById('startRuinsExploreBtn');
+                    if (btn) btn.click();
+                    else log('[自动调试] 未找到一键遗迹按钮', 'warning');
+                }, 20000);
             });
             
             // 监听webview加载失败事件
@@ -1761,6 +1769,14 @@
                 
                 // 同时在控制台输出
                 console.log(`${timeStr} [${type.toUpperCase()}] ${message}`);
+
+                // 写入JT/日志.log文件
+                try {
+                    const fs = require('fs');
+                    const path = require('path');
+                    const logLine = `${timeStr}${message}\n`;
+                    fs.appendFileSync(path.join(__dirname, 'JT', '日志.log'), logLine);
+                } catch (e2) {}
             } catch (error) {
                 console.error('输出日志时出错:', error);
             }
@@ -3867,31 +3883,43 @@
          */
         /**
          * 检测是否有弹窗覆盖层
-         * 弹窗特征：中央有亮色弹窗框（亮度>150），被较暗遮罩包围
-         * 不能只用暗色占比判断，因为地图本身也是暗的
+         * 弹窗特征(千问VL校准)：中央蓝灰色矩形框(R100-150,G100-150,B180-220)，
+         * 外部是深色遮罩。普通地图是明亮彩色背景。
+         * 检测策略：中央区域蓝灰色像素占比>5%即为弹窗
          */
         function detectPopupOverlay(bitmap, width, height) {
-            // 检查画面中央区域是否有亮色弹窗框
-            const xStart = Math.floor(width * 0.15);
-            const xEnd = Math.floor(width * 0.85);
+            const xStart = Math.floor(width * 0.2);
+            const xEnd = Math.floor(width * 0.8);
             const yStart = Math.floor(height * 0.2);
             const yEnd = Math.floor(height * 0.7);
 
-            let brightPixels = 0;
+            let blueGrayPixels = 0;
+            let darkPixels = 0;
             let totalPixels = 0;
 
-            for (let y = yStart; y < yEnd; y += 6) {
-                for (let x = xStart; x < xEnd; x += 6) {
+            for (let y = yStart; y < yEnd; y += 5) {
+                for (let x = xStart; x < xEnd; x += 5) {
                     const idx = (y * width + x) * 4;
                     const r = bitmap[idx], g = bitmap[idx + 1], b = bitmap[idx + 2];
                     const brightness = (r + g + b) / 3;
-                    // 亮色像素（弹窗框）
-                    if (brightness > 150) brightPixels++;
+
+                    // 蓝灰色弹窗边框/背景
+                    if (r >= 80 && r <= 170 && g >= 80 && g <= 170 && b >= 150 && b <= 240) {
+                        blueGrayPixels++;
+                    }
+                    // 深色遮罩
+                    if (brightness < 40) {
+                        darkPixels++;
+                    }
                     totalPixels++;
                 }
             }
 
-            // 弹窗框通常占中央区域25%以上（准备页按钮区域约占10-15%）
+            const blueGrayRatio = blueGrayPixels / totalPixels;
+            const darkRatio = darkPixels / totalPixels;
+
+            // 弹窗：蓝灰色区域>5% 且 暗色区域>10%
+            return blueGrayRatio > 0.05 && darkRatio > 0.10;
             return totalPixels > 0 && (brightPixels / totalPixels) > 0.25;
         }
 

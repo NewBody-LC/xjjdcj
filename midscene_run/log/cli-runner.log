@@ -1,0 +1,6 @@
+[2026-03-19T23:52:53.560+08:00] CLI invoked: midscene-web act --prompt 截图查看当前页面
+[2026-03-19T23:52:53.597+08:00] command: act, args: {"prompt":"截图查看当前页面"}
+[2026-03-19T23:52:53.668+08:00] command act completed, isError: true
+[2026-03-19T23:54:39.394+08:00] CLI invoked: midscene-web act --prompt 截图查看当前页面
+[2026-03-19T23:54:39.429+08:00] command: act, args: {"prompt":"截图查看当前页面"}
+[2026-03-19T23:54:39.502+08:00] command act completed, isError: true
