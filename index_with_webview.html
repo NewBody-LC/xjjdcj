@@ -2627,42 +2627,10 @@
                 const width = size.width;
                 const height = size.height;
 
-                // 扫描画面中央偏下区域查找黄色挑战按钮
-                // 千问VL校准：按钮在画面约(0.47, 0.57)位置
-                const scanXStart = Math.floor(width * 0.25);
-                const scanXEnd = Math.floor(width * 0.75);
-                const scanYStart = Math.floor(height * 0.45);
-                const scanYEnd = Math.floor(height * 0.70);
-
-                let yellowClusterX = 0, yellowClusterY = 0, yellowCount = 0;
-                const gridSize = 4;
-
-                for (let y = scanYStart; y < scanYEnd; y += gridSize) {
-                    for (let x = scanXStart; x < scanXEnd; x += gridSize) {
-                        const idx = (y * width + x) * 4;
-                        const p = getPixel(bitmap, idx);
-                        const r = p.r, g = p.g, b = p.b;
-                        // 黄色按钮特征：R最高、高饱和度、B很低
-                        if (r > 160 && g > 120 && b < 100 && (r - b) > 50) {
-                            yellowClusterX += x;
-                            yellowClusterY += y * 2; // y方向加权，减少其他黄色元素干扰
-                            yellowCount++;
-                        }
-                    }
-                }
-
-                let clickX, clickY;
-                if (yellowCount >= 20) {
-                    // 找到足够多的黄色按钮像素，点击加权中心
-                    clickX = Math.round(yellowClusterX / yellowCount);
-                    clickY = Math.round(yellowClusterY / (yellowCount * 2)); // 还原y加权
-                    log(`像素扫描找到黄色挑战按钮，聚集${yellowCount}个点，中心: (${clickX}, ${clickY})`, 'info');
-                } else {
-                    // 回退到固定坐标（千问VL校准）
-                    clickX = Math.round(0.48 * width);
-                    clickY = Math.round(0.57 * height);
-                    log(`未找到黄色按钮，使用固定坐标: (${clickX}, ${clickY})`, 'warning');
-                }
+                // 直接使用配置文件中的节点挑战按钮坐标(0.50, 0.72)
+                let clickX = Math.round(0.50 * width);
+                let clickY = Math.round(0.72 * height);
+                log(`使用节点挑战按钮固定坐标: (${clickX}, ${clickY})`, 'info');
 
                 log(`点击挑战按钮，坐标: (${clickX}, ${clickY})`, 'info');
                 const result = await ipcRenderer.invoke('simulate-mouse-click', 'game-webview', clickX, clickY);
