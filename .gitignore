@@ -2,4 +2,6 @@ node_modules/
 release/
 *.exe
 dist/
-.trae/
+.trae/midscene-skills/
+xjjdcj-Midscene/node_modules/
+midscene_run/
