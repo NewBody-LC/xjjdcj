@@ -1710,22 +1710,6 @@
                         console.log('ERROR: 屏蔽浏览器兼容性提示时出错: ' + e.message);
                     }
                 `);
-
-                // 自动触发一键遗迹（开发调试用）
-                setTimeout(() => {
-                    log('[自动调试] 自动触发一键遗迹...', 'info');
-                    // 用所有可能的方式找到并点击按钮
-                    const btn = document.getElementById('startRuinsExploreBtn')
-                        || document.querySelector('[onclick*="startSmartRuinsExplore"]')
-                        || document.querySelector('button');
-                    if (btn) {
-                        btn.click();
-                        log('[自动调试] 已点击按钮', 'success');
-                    } else {
-                        log('[自动调试] 未找到按钮，尝试直接调用函数', 'warning');
-                        if (typeof startSmartRuinsExplore === 'function') startSmartRuinsExplore();
-                    }
-                }, 30000);
             });
             
             // 监听webview加载失败事件
@@ -3049,6 +3033,8 @@
 
             if (redRatio > 0.15) return '战斗';
             else if (isPrepareScreen) return '准备';
+            // 弹窗检测：如果有蓝灰色弹窗框，视为准备状态
+            else if (detectPopupOverlay(bitmap, width, height)) return '准备';
             else if (yellowRatio > 0.02) return '地图';
             else return detectSelectionState(bitmap, width, height);
         }
@@ -3903,6 +3889,7 @@
 
             let blueGrayPixels = 0;
             let darkPixels = 0;
+            let whitePixels = 0;
             let totalPixels = 0;
 
             for (let y = yStart; y < yEnd; y += 5) {
@@ -3919,16 +3906,27 @@
                     if (brightness < 40) {
                         darkPixels++;
                     }
+                    // 白色文字/高亮
+                    if (brightness > 200) {
+                        whitePixels++;
+                    }
                     totalPixels++;
                 }
             }
 
             const blueGrayRatio = blueGrayPixels / totalPixels;
             const darkRatio = darkPixels / totalPixels;
+            const whiteRatio = whitePixels / totalPixels;
+
+            // 弹窗特征：蓝灰色+深色遮罩 或 白色高亮+深色遮罩
+            const hasOverlay = darkRatio > 0.10;
+            const hasBlueGray = blueGrayRatio > 0.05;
+            const hasWhiteOnDark = whiteRatio > 0.03 && darkRatio > 0.30;
+
+            return hasOverlay && (hasBlueGray || hasWhiteOnDark);
 
             // 弹窗：蓝灰色区域>5% 且 暗色区域>10%
             return blueGrayRatio > 0.05 && darkRatio > 0.10;
-            return totalPixels > 0 && (brightPixels / totalPixels) > 0.25;
         }
 
         /**
