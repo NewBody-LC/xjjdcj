@@ -2863,16 +2863,8 @@
                     hasPopup: false      // 是否有弹窗
                 };
 
-                // 1. 使用千问VL识别节点（首次或缓存过期时）
-                if (!smartExploreRuins._cachedNodes || smartExploreRuins._cacheTime < Date.now() - 30000) {
-                    log('使用千问VL识别地图节点...', 'info');
-                    analysis.nodes = await detectNodesByVision();
-                    smartExploreRuins._cachedNodes = analysis.nodes;
-                    smartExploreRuins._cacheTime = Date.now();
-                } else {
-                    analysis.nodes = smartExploreRuins._cachedNodes;
-                    log('使用缓存的节点数据 (' + analysis.nodes.length + '个)', 'info');
-                }
+                // 1. 像素检测节点
+                analysis.nodes = detectNodes(bitmap, width, height);
                 analysis.reachableNodes = analysis.nodes;
                 analysis.hasPopup = detectPopupOverlay(bitmap, width, height);
 
@@ -3875,90 +3867,6 @@
             return totalPixels > 0 && (brightPixels / totalPixels) > 0.10;
         }
 
-        /**
-         * 使用千问VL视觉模型识别地图节点
-         * 比像素检测更准确
-         */
-        async function detectNodesByVision(bitmap, width, height) {
-            try {
-                // 将bitmap转为PNG buffer
-                const { createCanvas } = require('canvas');
-                // 直接用NativeImage保存到临时文件
-                const fs = require('fs');
-                const path = require('path');
-                const tmpDir = path.join(__dirname, 'JT');
-                const tmpFile = path.join(tmpDir, 'map_detect_tmp.png');
-
-                // 使用capturePage获取image再保存（更可靠）
-                const image = await gameWebview.capturePage();
-                fs.writeFileSync(tmpFile, image.toPNG());
-
-                const imageBase64 = fs.readFileSync(tmpFile).toString('base64');
-
-                // 调用千问VL API
-                const apiKey = 'sk-80dec1652c1d428b9d42651298a4de0e';
-                const baseUrl = 'https://dashscope.aliyuncs.com/compatible-mode/v1';
-
-                const response = await fetch(baseUrl + '/chat/completions', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': 'Bearer ' + apiKey
-                    },
-                    body: JSON.stringify({
-                        model: 'qwen-vl-max-latest',
-                        messages: [{
-                            role: 'user',
-                            content: [
-                                { type: 'image_url', image_url: { url: 'data:image/png;base64,' + imageBase64 } },
-                                { type: 'text', text: '这是一个游戏遗迹地图，深色背景上有彩色圆形节点。请仔细数出所有节点（大概15-25个），用百分比坐标定位。类型：黄色/橙色=normal，红色=elite，紫色=boss，蓝色=event，绿色=shop。重要：坐标必须是占画面宽高的百分比(0-100)。只输出JSON数组。' }
-                            ]
-                        }],
-                        max_tokens: 1500
-                    })
-                });
-
-                const data = await response.json();
-                const content = data.choices?.[0]?.message?.content || '';
-
-                // 解析JSON（可能被```json包裹）
-                const jsonMatch = content.match(/\[[\s\S]*\]/);
-                if (!jsonMatch) {
-                    log('[千问VL] 未识别到节点JSON', 'warning');
-                    return [];
-                }
-
-                const rawNodes = JSON.parse(jsonMatch[0]);
-
-                // 转换为像素坐标并映射类型
-                const nodes = rawNodes.map(n => {
-                    // 类型映射
-                    const typeMap = {
-                        'normal': 'normal', '黄色': 'normal', '普通': 'normal', '普通战斗': 'normal',
-                        'elite': 'elite', '红色': 'elite', '精英': 'elite', '精英战斗': 'elite',
-                        'boss': 'boss', '紫色': 'boss', 'BOSS': 'boss',
-                        'event': 'event', '蓝色': 'event', '随机': 'event', '随机事件': 'event', 'random': 'event',
-                        'shop': 'shop', '绿色': 'shop', '商店': 'shop', 'store': 'shop'
-                    };
-                    const mappedType = typeMap[n.type] || typeMap[String(n.type)] || 'normal';
-                    return {
-                        x: Math.round(width * n.x / 100),
-                        y: Math.round(height * n.y / 100),
-                        type: mappedType,
-                        color: mappedType
-                    };
-                });
-
-                log(`[千问VL] 识别到 ${nodes.length} 个节点`, 'info');
-                return nodes;
-
-            } catch (error) {
-                log('[千问VL] 节点识别失败: ' + error.message, 'warning');
-                // 降级到像素检测
-                return detectNodes(bitmap, width, height);
-            }
-        }
-
         function detectNodes(bitmap, width, height) {
             const nodes = [];
             const gridSize = 8; // 更小的采样网格，提高精度
@@ -3977,27 +3885,27 @@
                     const b = bitmap[idx + 2];
                     const brightness = (r + g + b) / 3;
 
-                    // 排除纯黑背景像素（节点颜色再暗也有一定亮度）
-                    if (brightness < 40) continue;
+                    // 排除纯黑/极暗背景像素
+                    if (brightness < 50) continue;
 
-                    // 识别黄色节点（普通战斗）- 暖色调亮点
-                    if (r > 140 && g > 80 && b < 120 && r > b) {
+                    // 识别黄色节点（普通战斗）- 暖色调：R最高，B<150，R>100
+                    if (r > 100 && r > g && b < 150 && r > 80) {
                         nodes.push({ x: x, y: y, type: 'normal', color: 'yellow' });
                     }
-                    // 识别红色节点（精英战斗）
-                    else if (r > 150 && g < 120 && b < 120 && r > g + 30) {
+                    // 识别红色节点（精英战斗）- 深暖色：R>B且G较低
+                    else if (r > 70 && g < 110 && b < 155 && r > g && r > b - 20) {
                         nodes.push({ x: x, y: y, type: 'elite', color: 'red' });
                     }
-                    // 识别紫色节点（BOSS战）
-                    else if (b > 100 && r > 80 && g < r && b > g && r < b + 80) {
+                    // 识别紫色节点（BOSS战）- B最高，R中等
+                    else if (b > 80 && r > 60 && b > g && b > r - 20) {
                         nodes.push({ x: x, y: y, type: 'boss', color: 'purple' });
                     }
-                    // 识别蓝色节点（随机事件）
-                    else if (b > 120 && b > r + 30 && b > g + 30) {
+                    // 识别蓝色节点（随机事件）- B通道突出
+                    else if (b > 70 && b > r && b > g) {
                         nodes.push({ x: x, y: y, type: 'event', color: 'blue' });
                     }
-                    // 识别绿色节点（商店）
-                    else if (g > 120 && g > r + 30 && g > b + 30) {
+                    // 识别绿色节点（商店）- B通道最高（实际绿色节点B>R≈G）
+                    else if (b > 100 && b > r + 5 && b > g) {
                         nodes.push({ x: x, y: y, type: 'shop', color: 'green' });
                     }
                 }
