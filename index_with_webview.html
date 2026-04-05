@@ -2868,6 +2868,34 @@
                 analysis.reachableNodes = analysis.nodes;
                 analysis.hasPopup = detectPopupOverlay(bitmap, width, height);
 
+                // 调试日志：保存分析结果到JT/debug_nodes.json
+                try {
+                    const fs = require('fs');
+                    const path = require('path');
+                    const debugData = {
+                        timestamp: new Date().toISOString(),
+                        imageSize: { width, height },
+                        state: analysis.currentState,
+                        nodeCount: analysis.nodes.length,
+                        hasPopup: analysis.hasPopup,
+                        nodes: analysis.nodes.map(n => ({ x: n.x, y: n.y, type: n.type, color: n.color, contrast: n.contrast })),
+                        // 截图保存
+                        screenshot: 'JT/debug_map.png',
+                        // 采样中央区域颜色
+                        centerSample: (() => {
+                            const cx = Math.floor(width / 2), cy = Math.floor(height / 2);
+                            const idx = (cy * width + cx) * 4;
+                            return { x: cx, y: cy, r: bitmap[idx], g: bitmap[idx+1], b: bitmap[idx+2] };
+                        })()
+                    };
+                    fs.writeFileSync(path.join(__dirname, 'JT', 'debug_nodes.json'), JSON.stringify(debugData, null, 2));
+                    // 保存截图
+                    try {
+                        const img = await gameWebview.capturePage();
+                        fs.writeFileSync(path.join(__dirname, 'JT', 'debug_map.png'), img.toPNG());
+                    } catch (e2) {}
+                } catch (e) {}
+
                 // 2. 检测当前状态
                 analysis.currentState = await detectGameState(bitmap, width, height);
 
@@ -3863,8 +3891,8 @@
                 }
             }
 
-            // 弹窗框通常占中央区域20%以上
-            return totalPixels > 0 && (brightPixels / totalPixels) > 0.20;
+            // 弹窗框通常占中央区域25%以上（准备页按钮区域约占10-15%）
+            return totalPixels > 0 && (brightPixels / totalPixels) > 0.25;
         }
 
         /**
@@ -3877,10 +3905,10 @@
          */
         function detectNodes(bitmap, width, height) {
             const gridSize = 10;
-            const yStart = Math.floor(height * 0.08);
-            const yEnd = Math.floor(height * 0.88);
-            const xStart = Math.floor(width * 0.03);
-            const xEnd = Math.floor(width * 0.97);
+            const yStart = Math.floor(height * 0.12);
+            const yEnd = Math.floor(height * 0.82);
+            const xStart = Math.floor(width * 0.08);
+            const xEnd = Math.floor(width * 0.92);
 
             // 第一步：计算每个网格点的局部平均亮度（周围区域）
             const ringRadius = 15; // 对比度的环形区域半径
@@ -3915,7 +3943,7 @@
 
             // 第二步：只保留对比度>阈值的像素，并分类颜色
             const candidates = [];
-            const minContrast = 15; // 节点至少比周围亮15个亮度单位
+            const minContrast = 35; // 节点至少比周围亮35个亮度单位（排除噪声）
 
             for (let y = yStart; y < yEnd; y += gridSize) {
                 for (let x = xStart; x < xEnd; x += gridSize) {
@@ -3926,18 +3954,29 @@
                     const idx = (y * width + x) * 4;
                     const r = bitmap[idx], g = bitmap[idx+1], b = bitmap[idx+2];
 
-                    // 颜色分类
+                    // 颜色分类 — 暖色优先，严格要求R/B/G差距
                     let type = 'unknown', color = 'unknown';
-                    if (r > g && r > b && b < 150) {
-                        type = 'normal'; color = 'yellow'; // 暖色/黄色
-                    } else if (r > g && r > b && g < 120) {
-                        type = 'elite'; color = 'red'; // 红色/深暖色
-                    } else if (b > r && b > g && r > 40) {
-                        type = 'event'; color = 'blue'; // 蓝色
-                    } else if (b > r && b > g && r <= 40) {
-                        type = 'boss'; color = 'purple'; // 紫色（暗但B高）
-                    } else if (g > r && g > b) {
-                        type = 'shop'; color = 'green'; // 绿色
+                    const maxCh = Math.max(r, g, b);
+
+                    // 黄色（普通战斗）：R最高，R-G>10，R-B>30
+                    if (r === maxCh && r - g > 10 && r - b > 30) {
+                        type = 'normal'; color = 'yellow';
+                    }
+                    // 红色（精英）：R最高，R-G>20，但整体暗
+                    else if (r === maxCh && r - g > 20 && r < 180) {
+                        type = 'elite'; color = 'red';
+                    }
+                    // 绿色（商店）：G最高，G-R>10，G-B>5
+                    else if (g === maxCh && g - r > 10 && g - b > 5) {
+                        type = 'shop'; color = 'green';
+                    }
+                    // 蓝色（事件）：B最高，B-R>15，B-G>15
+                    else if (b === maxCh && b - r > 15 && b - g > 15) {
+                        type = 'event'; color = 'blue';
+                    }
+                    // 紫色（BOSS）：B最高但R也不低
+                    else if (b === maxCh && r > 50 && b - g > 5) {
+                        type = 'boss'; color = 'purple';
                     }
 
                     if (type !== 'unknown') {
@@ -3947,7 +3986,38 @@
             }
 
             // 第三步：密度聚类去重（同类型需要>=2邻居）
-            return mergeNearbyNodes(candidates, 50);
+            const result = mergeNearbyNodes(candidates, 50);
+
+            // 调试：保存详细检测数据
+            try {
+                const fs = require('fs');
+                const path = require('path');
+                // 统计对比度分布
+                const allContrasts = [];
+                for (const k in contrastMap) allContrasts.push(contrastMap[k].contrast);
+                allContrasts.sort((a,b) => b-a);
+                const topContrasts = allContrasts.slice(0, 30);
+                const typeCounts = {};
+                result.forEach(n => { typeCounts[n.type] = (typeCounts[n.type]||0) + 1; });
+
+                const debugDetail = {
+                    gridPoints: Object.keys(contrastMap).length,
+                    candidatesBeforeMerge: candidates.length,
+                    nodesAfterMerge: result.length,
+                    typeCounts,
+                    topContrasts,
+                    contrastStats: {
+                        max: allContrasts[0] || 0,
+                        median: allContrasts[Math.floor(allContrasts.length/2)] || 0,
+                        above15: allContrasts.filter(c => c >= 15).length,
+                        above10: allContrasts.filter(c => c >= 10).length,
+                        above5: allContrasts.filter(c => c >= 5).length
+                    }
+                };
+                fs.writeFileSync(path.join(__dirname, 'JT', 'debug_detect.json'), JSON.stringify(debugDetail, null, 2));
+            } catch (e) {}
+
+            return result;
         }
 
         /**
