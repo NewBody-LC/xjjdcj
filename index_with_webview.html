@@ -2063,29 +2063,14 @@
                     await sleep(2000);
                     if (checkStopRequested()) return;
 
-                    // 重新检测状态
+                    // 检测当前状态
                     const recheckState = await detectCurrentRuinsState();
                     if (checkStopRequested()) return;
 
-                    // 增强检测返回"未知"时，用简单版像素检测兜底
-                    let effectiveState = recheckState;
-                    if (recheckState === '未知') {
-                        log('增强检测返回未知，等待5秒后尝试简单像素检测...', 'info');
-                        try {
-                            const captured = await captureAndSave('recheck_unknown');
-                            const simpleState = detectGameState(captured.bitmap, captured.width, captured.height);
-                            if (simpleState !== '未知') {
-                                log(`简单像素检测到: ${simpleState}，采用该结果`, 'info');
-                                effectiveState = simpleState;
-                            }
-                        } catch (e) { /* 兜底检测失败不影响 */ }
-                    }
-
-                    if (effectiveState === '准备' || effectiveState === '地图' || effectiveState === '选择') {
+                    if (recheckState !== '未知') {
                         needGoToRuins = false;
                     } else {
-                        // 未知/其他状态，再等一轮
-                        log('状态仍为未知，再等待一轮...', 'warning');
+                        log('状态为未知，再等待一轮...', 'warning');
                         await sleep(2000);
                         const thirdCheck = await detectCurrentRuinsState();
                         if (checkStopRequested()) return;
@@ -3040,15 +3025,14 @@
                 log(`[采样像素] ${debugSamples.slice(0, 8).join(' | ')}`, 'info');
             }
 
-            // 状态检测优先级：战斗 > 失败 > 选择 > 准备 > 弹窗 > 地图
+            // 状态检测优先级：战斗 > 失败 > 胜利完成 > 准备(弹窗) > 选择 > 地图
             if (redRatio > 0.15) return '战斗';
-            // 失败检测：战斗结束后可能直接进入失败界面（无血条但有红色标题）
             else if (detectFailureScreen(bitmap, width, height)) return '失败';
-            // 选择检测（精确卡片检测）在准备之前，战斗后的选择界面也有遮罩
-            else if (detectSelectionState(bitmap, width, height) === '选择') return '选择';
+            // 胜利完成：中央偏上粉红色标题 + 中下金色按钮
+            else if (detectVictoryInBitmap(bitmap, width, height)) return '胜利完成';
             else if (isPrepareScreen) return '准备';
-            // 弹窗检测：如果有蓝灰色弹窗框，视为准备状态
             else if (detectPopupOverlay(bitmap, width, height)) return '准备';
+            else if (detectSelectionState(bitmap, width, height) === '选择') return '选择';
             else if (yellowRatio > 0.02) return '地图';
             else return '未知';
         }
@@ -3065,20 +3049,22 @@
          */
         async function detectCurrentRuinsState() {
             try {
-                // 使用增强版状态检测系统
-                const result = await smartDetectState();
-                
-                // 记录详细日志
-                if (result.confidence >= STATE_DETECTION_CONFIG.highConfidence) {
-                    log(`状态检测（高置信度）: ${result.state} (${(result.confidence * 100).toFixed(1)}%)`, 'success');
-                } else if (result.confidence >= STATE_DETECTION_CONFIG.minConfidence) {
-                    log(`状态检测（中等置信度）: ${result.state} (${(result.confidence * 100).toFixed(1)}%)`, 'info');
-                } else {
-                    log(`状态检测（低置信度）: ${result.state} (${(result.confidence * 100).toFixed(1)}%)`, 'warning');
+                // 直接使用像素检测（简单可靠）
+                const image = await gameWebview.capturePage();
+                const size = image.getSize();
+                const bitmap = image.toBitmap();
+                const state = detectGameState(bitmap, size.width, size.height);
+                log(`状态检测: ${state}`, state === '未知' ? 'warning' : 'info');
+                // 未知状态时保存截图用于千问VL校准
+                if (state === '未知') {
+                    const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+                    const fs = require('fs');
+                    const path = require('path');
+                    const png = image.toPNG();
+                    fs.writeFileSync(path.join(__dirname, 'JT', `unknown_${ts}.png`), png);
+                    log('[调试] 已保存未知状态截图用于校准', 'info');
                 }
-                
-                return result.state;
-
+                return state;
             } catch (error) {
                 log('检测遗迹状态时出错: ' + error.message, 'error');
                 return '未知';
@@ -3282,7 +3268,40 @@
         /**
          * 分析所有特征
          */
-        // [开发辅助] 千问VL状态识别 - 仅用于开发调试，不作为运行时兜底
+        // 同步检测胜利完成界面（用于detectGameState）
+        function detectVictoryInBitmap(bitmap, width, height) {
+            // 检测粉红色标题区域
+            const xStart = Math.floor(width * 0.3);
+            const xEnd = Math.floor(width * 0.7);
+            const yStart = Math.floor(height * 0.2);
+            const yEnd = Math.floor(height * 0.4);
+            let pinkCount = 0;
+            const sampleCount = 40;
+            for (let i = 0; i < sampleCount; i++) {
+                const x = xStart + Math.floor(Math.random() * (xEnd - xStart));
+                const y = yStart + Math.floor(Math.random() * (yEnd - yStart));
+                const idx = (y * width + x) * 4;
+                const p = getPixel(bitmap, idx);
+                if (p.r > 200 && p.g > 80 && p.g < 150 && p.b > 100 && p.b < 180) pinkCount++;
+            }
+            if (pinkCount / sampleCount < 0.25) return false;
+            // 检测金色确定按钮区域
+            const bxStart = Math.floor(width * 0.30);
+            const bxEnd = Math.floor(width * 0.70);
+            const byStart = Math.floor(height * 0.52);
+            const byEnd = Math.floor(height * 0.67);
+            let goldCount = 0;
+            for (let i = 0; i < sampleCount; i++) {
+                const x = bxStart + Math.floor(Math.random() * (bxEnd - bxStart));
+                const y = byStart + Math.floor(Math.random() * (byEnd - byStart));
+                const idx = (y * width + x) * 4;
+                const p = getPixel(bitmap, idx);
+                if (p.r > 200 && p.g > 160 && p.b < 120) goldCount++;
+            }
+            return goldCount / sampleCount > 0.3;
+        }
+
+        // 千问VL状态识别（仅开发调试）
         // 使用方法：在控制台调用 detectStateWithVL(await gameWebview.capturePage())
         async function detectStateWithVL(nativeImage) {
             try {
@@ -4591,15 +4610,10 @@
                         case '失败':
                             if (checkStopRequested()) return;
                             log('检测到战斗失败界面，点击返回...', 'info');
-                            // 失败界面通常有返回/重试按钮，点击屏幕中央偏下
-                            const failSize = await gameWebview.executeJavaScript(`(function() {
-                                const canvas = document.querySelector('canvas');
-                                if (canvas) {
-                                    return { width: canvas.width, height: canvas.height };
-                                }
-                                return { width: window.innerWidth, height: window.innerHeight };
-                            })()`);
-                            await clickAtPosition(failSize.width * 0.5, failSize.height * 0.85);
+                            // 失败界面点击返回按钮
+                            const failImg = await gameWebview.capturePage();
+                            const failSz = failImg.getSize();
+                            await clickAtPosition(failSz.width * 0.5, failSz.height * 0.85);
                             await sleep(2000);
                             break;
 
