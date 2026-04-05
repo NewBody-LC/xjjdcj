@@ -2908,35 +2908,6 @@
                 analysis.reachableNodes = analysis.nodes;
                 analysis.hasPopup = detectPopupOverlay(bitmap, width, height);
 
-                // 调试日志：保存分析结果到JT/debug_nodes.json
-                try {
-                    const fs = require('fs');
-                    const path = require('path');
-                    const debugData = {
-                        timestamp: new Date().toISOString(),
-                        imageSize: { width, height },
-                        state: analysis.currentState,
-                        nodeCount: analysis.nodes.length,
-                        hasPopup: analysis.hasPopup,
-                        nodes: analysis.nodes.map(n => ({ x: n.x, y: n.y, type: n.type, color: n.color, contrast: n.contrast })),
-                        // 截图保存
-                        screenshot: 'JT/debug_map.png',
-                        // 采样中央区域颜色
-                        centerSample: (() => {
-                            const cx = Math.floor(width / 2), cy = Math.floor(height / 2);
-                            const idx = (cy * width + cx) * 4;
-                            const p = getPixel(bitmap, idx);
-                            return { x: cx, y: cy, r: p.r, g: p.g, b: p.b };
-                        })()
-                    };
-                    fs.writeFileSync(path.join(__dirname, 'JT', 'debug_nodes.json'), JSON.stringify(debugData, null, 2));
-                    // 保存截图
-                    try {
-                        const img = await gameWebview.capturePage();
-                        fs.writeFileSync(path.join(__dirname, 'JT', 'debug_map.png'), img.toPNG());
-                    } catch (e2) {}
-                } catch (e) {}
-
                 // 2. 检测当前状态
                 analysis.currentState = await detectGameState(bitmap, width, height);
 
@@ -4077,40 +4048,6 @@
 
             // 第三步：密度聚类去重
             const result = mergeNearbyNodes(candidates, 35);
-
-            // 调试：保存详细检测数据
-            try {
-                const fs = require('fs');
-                const path = require('path');
-                const allContrasts = [];
-                const allSatContrasts = [];
-                for (const k in contrastMap) {
-                    allContrasts.push(contrastMap[k].contrast);
-                    allSatContrasts.push(contrastMap[k].satContrast);
-                }
-                allContrasts.sort((a,b) => b-a);
-                allSatContrasts.sort((a,b) => b-a);
-                const typeCounts = {};
-                result.forEach(n => { typeCounts[n.type] = (typeCounts[n.type]||0) + 1; });
-
-                const debugDetail = {
-                    gridPoints: Object.keys(contrastMap).length,
-                    candidatesBeforeMerge: candidates.length,
-                    nodesAfterMerge: result.length,
-                    typeCounts,
-                    topContrasts: allContrasts.slice(0, 15),
-                    topSatContrasts: allSatContrasts.slice(0, 15),
-                    contrastStats: {
-                        max: allContrasts[0] || 0,
-                        median: allContrasts[Math.floor(allContrasts.length/2)] || 0,
-                        above15: allContrasts.filter(c => c >= 15).length,
-                        above10: allContrasts.filter(c => c >= 10).length,
-                        above5: allContrasts.filter(c => c >= 5).length
-                    },
-                    nodes: result.map(n => ({ x: n.x, y: n.y, type: n.type, color: n.color, r: n.r, g: n.g, b: n.b }))
-                };
-                fs.writeFileSync(path.join(__dirname, 'JT', 'debug_detect.json'), JSON.stringify(debugDetail, null, 2));
-            } catch (e) {}
 
             return result;
         }
