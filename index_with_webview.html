@@ -2925,7 +2925,8 @@
                         centerSample: (() => {
                             const cx = Math.floor(width / 2), cy = Math.floor(height / 2);
                             const idx = (cy * width + cx) * 4;
-                            return { x: cx, y: cy, r: bitmap[idx], g: bitmap[idx+1], b: bitmap[idx+2] };
+                            const p = getPixel(bitmap, idx);
+                            return { x: cx, y: cy, r: p.r, g: p.g, b: p.b };
                         })()
                     };
                     fs.writeFileSync(path.join(__dirname, 'JT', 'debug_nodes.json'), JSON.stringify(debugData, null, 2));
@@ -3929,10 +3930,11 @@
             for (let y = yStart; y < yEnd; y += 5) {
                 for (let x = xStart; x < xEnd; x += 5) {
                     const idx = (y * width + x) * 4;
-                    const r = bitmap[idx], g = bitmap[idx + 1], b = bitmap[idx + 2];
+                    const p = getPixel(bitmap, idx);
+                    const r = p.r, g = p.g, b = p.b;
                     const brightness = (r + g + b) / 3;
 
-                    // 蓝灰色弹窗边框/背景（千问VL校准：R70-170, G80-170, B120-240）
+                    // 蓝灰色弹窗边框/背景（使用正确RGBA颜色）
                     if (r >= 60 && r <= 170 && g >= 80 && g <= 170 && b >= 120 && b <= 240) {
                         blueGrayPixels++;
                     }
@@ -3961,107 +3963,142 @@
         }
 
         /**
+         * 从BGRA bitmap读取正确RGBA像素
+         * Electron的toBitmap()在Windows上返回BGRA格式
+         */
+        function getPixel(bitmap, idx) {
+            return { r: bitmap[idx + 2], g: bitmap[idx + 1], b: bitmap[idx] };
+        }
+
+        /**
          * 检测地图上的节点
-         * 策略：节点是六边形，局部亮度高于周围背景
-         * 1. 计算每个像素的局部对比度（与周围20px区域比较）
-         * 2. 只保留对比度高的像素（节点比背景亮）
+         * 策略：节点是六边形，具有明确颜色特征，局部亮度/饱和度高于周围背景
+         * 1. 计算每个网格点的局部对比度和颜色饱和度
+         * 2. 只保留高饱和度+高对比度的像素（节点比背景鲜艳）
          * 3. 根据颜色分类节点类型
          * 4. 密度聚类去重
          */
         function detectNodes(bitmap, width, height) {
-            const gridSize = 10;
-            const yStart = Math.floor(height * 0.12);
-            const yEnd = Math.floor(height * 0.82);
-            const xStart = Math.floor(width * 0.08);
-            const xEnd = Math.floor(width * 0.92);
+            const gridSize = 8;
+            const yStart = Math.floor(height * 0.10);
+            const yEnd = Math.floor(height * 0.85);
+            const xStart = Math.floor(width * 0.06);
+            const xEnd = Math.floor(width * 0.94);
 
-            // 第一步：计算每个网格点的局部平均亮度（周围区域）
-            const ringRadius = 15; // 对比度的环形区域半径
+            // 第一步：计算每个网格点的局部平均亮度和饱和度
+            const ringRadius = 18;
             const contrastMap = {}; // key: "x,y" -> contrast value
 
             for (let y = yStart; y < yEnd; y += gridSize) {
                 for (let x = xStart; x < xEnd; x += gridSize) {
                     const centerIdx = (y * width + x) * 4;
-                    const centerBright = (bitmap[centerIdx] + bitmap[centerIdx+1] + bitmap[centerIdx+2]) / 3;
+                    const cp = getPixel(bitmap, centerIdx);
+                    const centerBright = (cp.r + cp.g + cp.b) / 3;
+                    const centerMax = Math.max(cp.r, cp.g, cp.b);
+                    const centerMin = Math.min(cp.r, cp.g, cp.b);
+                    const centerSat = centerMax > 0 ? (centerMax - centerMin) / centerMax : 0;
 
-                    // 计算环形区域的平均亮度（排除中心5px）
-                    let ringSum = 0, ringCount = 0;
+                    // 计算环形区域的平均亮度和饱和度（排除中心5px）
+                    let ringBrightSum = 0, ringSatSum = 0, ringCount = 0;
                     for (let ry = -ringRadius; ry <= ringRadius; ry += 4) {
                         for (let rx = -ringRadius; rx <= ringRadius; rx += 4) {
-                            if (Math.abs(rx) <= 4 && Math.abs(ry) <= 4) continue; // 跳过中心
+                            if (Math.abs(rx) <= 4 && Math.abs(ry) <= 4) continue;
                             const dist = Math.sqrt(rx*rx + ry*ry);
-                            if (dist > ringRadius * 0.5 && dist <= ringRadius) {
+                            if (dist > ringRadius * 0.4 && dist <= ringRadius) {
                                 const px = x + rx, py = y + ry;
                                 if (px >= 0 && px < width && py >= 0 && py < height) {
                                     const pIdx = (py * width + px) * 4;
-                                    ringSum += (bitmap[pIdx] + bitmap[pIdx+1] + bitmap[pIdx+2]) / 3;
+                                    const rp = getPixel(bitmap, pIdx);
+                                    ringBrightSum += (rp.r + rp.g + rp.b) / 3;
+                                    const rMax = Math.max(rp.r, rp.g, rp.b);
+                                    const rMin = Math.min(rp.r, rp.g, rp.b);
+                                    ringSatSum += rMax > 0 ? (rMax - rMin) / rMax : 0;
                                     ringCount++;
                                 }
                             }
                         }
                     }
-                    const ringBright = ringCount > 0 ? ringSum / ringCount : 0;
-                    const contrast = centerBright - ringBright; // 正值=中心比周围亮
-                    contrastMap[x + ',' + y] = { contrast, bright: centerBright };
+                    const ringBright = ringCount > 0 ? ringBrightSum / ringCount : 0;
+                    const ringSat = ringCount > 0 ? ringSatSum / ringCount : 0;
+                    const contrast = centerBright - ringBright;
+                    const satContrast = centerSat - ringSat;
+                    contrastMap[x + ',' + y] = { contrast, satContrast, bright: centerBright, sat: centerSat, r: cp.r, g: cp.g, b: cp.b };
                 }
             }
 
-            // 第二步：只保留对比度>阈值的像素，并分类颜色
+            // 第二步：只保留对比度高或饱和度对比高的像素，并分类颜色
             const candidates = [];
-            const minContrast = 25; // 节点至少比周围亮25个亮度单位
+            const minContrast = 15;
+            const minSatContrast = 0.10;
 
             for (let y = yStart; y < yEnd; y += gridSize) {
                 for (let x = xStart; x < xEnd; x += gridSize) {
                     const key = x + ',' + y;
                     const info = contrastMap[key];
-                    if (!info || info.contrast < minContrast) continue;
+                    if (!info) continue;
 
-                    const idx = (y * width + x) * 4;
-                    const r = bitmap[idx], g = bitmap[idx+1], b = bitmap[idx+2];
+                    // 节点必须：亮度对比>阈值 或 饱和度对比>阈值
+                    if (info.contrast < minContrast && info.satContrast < minSatContrast) continue;
+                    // 排除太暗的点
+                    if (info.bright < 40) continue;
 
-                    // 颜色分类 — 暖色优先，严格要求R/B/G差距
-                    let type = 'unknown', color = 'unknown';
+                    const { r, g, b } = info;
                     const maxCh = Math.max(r, g, b);
+                    const minCh = Math.min(r, g, b);
+                    const sat = maxCh > 0 ? (maxCh - minCh) / maxCh : 0;
 
-                    // 黄色（普通战斗）：R最高，R-G>10，R-B>30
-                    if (r === maxCh && r - g > 10 && r - b > 30) {
+                    // 排除低饱和度（灰色背景）
+                    if (sat < 0.20) continue;
+
+                    // 颜色分类 — 基于真实RGBA颜色（已通过getPixel转换BGRA→RGBA）
+                    let type = 'unknown', color = 'unknown';
+
+                    // 黄色/橙色（普通战斗）：R最高，R-G差不大，B较低
+                    // 实际值：R~200-240, G~140-190, B~40-100
+                    if (r >= 150 && r === maxCh && g > 100 && b < 130 && r > b) {
                         type = 'normal'; color = 'yellow';
                     }
-                    // 红色（精英）：R最高，R-G>20，但整体暗
-                    else if (r === maxCh && r - g > 20 && r < 180) {
+                    // 红色（精英）：R很高，G较低，B较低
+                    // 实际值：R~180-220, G~50-100, B~40-80
+                    else if (r >= 160 && r === maxCh && g < 120 && b < 120 && r - g > 40) {
                         type = 'elite'; color = 'red';
                     }
-                    // 绿色（商店）：G最高，G-R>10，G-B>5
-                    else if (g === maxCh && g - r > 10 && g - b > 5) {
+                    // 绿色（商店）：G最高或接近最高，R和B较低
+                    // 实际值：R~60-100, G~150-200, B~70-150
+                    else if (g >= 130 && g === maxCh && g > r + 10 && g > b + 10) {
                         type = 'shop'; color = 'green';
                     }
-                    // 蓝色（事件）：B最高，B-R>15，B-G>15
-                    else if (b === maxCh && b - r > 15 && b - g > 15) {
+                    // 蓝色（事件）：B最高，明显大于R和G
+                    // 实际值：R~20-110, G~140-220, B~200-250
+                    else if (b >= 160 && b === maxCh && b > r && b > g) {
                         type = 'event'; color = 'blue';
                     }
-                    // 紫色（BOSS）：B最高但R也不低
-                    else if (b === maxCh && r > 50 && b - g > 5) {
+                    // 紫色（BOSS）：B和R都高，G较低
+                    else if (b >= 120 && r >= 100 && g < b && g < r) {
                         type = 'boss'; color = 'purple';
                     }
 
                     if (type !== 'unknown') {
-                        candidates.push({ x, y, type, color, contrast: info.contrast });
+                        candidates.push({ x, y, type, color, contrast: info.contrast, satContrast: info.satContrast, r, g, b });
                     }
                 }
             }
 
-            // 第三步：密度聚类去重（同类型需要>=2邻居）
-            const result = mergeNearbyNodes(candidates, 50);
+            // 第三步：密度聚类去重
+            const result = mergeNearbyNodes(candidates, 35);
 
             // 调试：保存详细检测数据
             try {
                 const fs = require('fs');
                 const path = require('path');
-                // 统计对比度分布
                 const allContrasts = [];
-                for (const k in contrastMap) allContrasts.push(contrastMap[k].contrast);
+                const allSatContrasts = [];
+                for (const k in contrastMap) {
+                    allContrasts.push(contrastMap[k].contrast);
+                    allSatContrasts.push(contrastMap[k].satContrast);
+                }
                 allContrasts.sort((a,b) => b-a);
-                const topContrasts = allContrasts.slice(0, 30);
+                allSatContrasts.sort((a,b) => b-a);
                 const typeCounts = {};
                 result.forEach(n => { typeCounts[n.type] = (typeCounts[n.type]||0) + 1; });
 
@@ -4070,14 +4107,16 @@
                     candidatesBeforeMerge: candidates.length,
                     nodesAfterMerge: result.length,
                     typeCounts,
-                    topContrasts,
+                    topContrasts: allContrasts.slice(0, 15),
+                    topSatContrasts: allSatContrasts.slice(0, 15),
                     contrastStats: {
                         max: allContrasts[0] || 0,
                         median: allContrasts[Math.floor(allContrasts.length/2)] || 0,
                         above15: allContrasts.filter(c => c >= 15).length,
                         above10: allContrasts.filter(c => c >= 10).length,
                         above5: allContrasts.filter(c => c >= 5).length
-                    }
+                    },
+                    nodes: result.map(n => ({ x: n.x, y: n.y, type: n.type, color: n.color, r: n.r, g: n.g, b: n.b }))
                 };
                 fs.writeFileSync(path.join(__dirname, 'JT', 'debug_detect.json'), JSON.stringify(debugDetail, null, 2));
             } catch (e) {}
@@ -4087,46 +4126,73 @@
 
         /**
          * 合并相近的节点
+         * 使用两阶段聚类：先按类型分组密度过滤，再全局去重
          */
         function mergeNearbyNodes(nodes, threshold) {
-            // 基于密度聚类：只保留有足够密集邻居的节点
-            // 真实节点是一小团集中像素，背景噪声是分散的
-            const minNeighbors = 3; // 至少3个邻居才认为是节点（含自身至少4个，过滤噪声簇）
-            const merged = [];
+            if (nodes.length === 0) return [];
+
+            // 第一步：密度过滤 — 每个节点需要有>=2个同类邻居
+            // （gridSize=8，一个节点约覆盖2x2=4个网格点，所以至少1-2个邻居）
+            const minNeighbors = 2;
+            const denseNodes = [];
 
             for (const node of nodes) {
-                // 计算该点附近的同类型像素密度
                 let neighborCount = 0;
                 for (const other of nodes) {
                     if (other === node) continue;
-                    // 只计算同类型的邻居
-                    if (other.type !== node.type) continue;
-                    const dist = Math.abs(node.x - other.x) + Math.abs(node.y - other.y); // 曼哈顿距离，更快
-                    if (dist < threshold) {
+                    // 允许相似类型（yellow/red都是暖色）互相作为邻居
+                    const sameFamily = other.type === node.type ||
+                        (node.type === 'normal' && other.type === 'elite') ||
+                        (node.type === 'elite' && other.type === 'normal');
+                    if (!sameFamily) continue;
+                    const dx = Math.abs(node.x - other.x);
+                    const dy = Math.abs(node.y - other.y);
+                    if (dx < threshold && dy < threshold) {
                         neighborCount++;
                     }
                 }
-
-                // 密度足够才加入候选
                 if (neighborCount >= minNeighbors) {
-                    // 检查是否与已有合并节点过近（去重）
-                    let found = false;
-                    for (const existing of merged) {
-                        if (existing.type !== node.type) continue;
-                        const distance = Math.sqrt(
-                            Math.pow(node.x - existing.x, 2) +
-                            Math.pow(node.y - existing.y, 2)
-                        );
-                        if (distance < threshold * 1.5) {
-                            // 保留更靠近中心的那个（计算邻居平均位置）
-                            found = true;
-                            break;
-                        }
-                    }
-                    if (!found) {
-                        merged.push(node);
+                    denseNodes.push(node);
+                }
+            }
+
+            if (denseNodes.length === 0) return [];
+
+            // 第二步：全局去重 — 按密度从高到低贪心选择
+            // 计算每个节点的邻居数
+            const nodeScores = denseNodes.map(n => {
+                let count = 0;
+                for (const other of denseNodes) {
+                    if (other === n) continue;
+                    const dx = Math.abs(n.x - other.x);
+                    const dy = Math.abs(n.y - other.y);
+                    if (dx < threshold && dy < threshold) count++;
+                }
+                return { node: n, score: count };
+            });
+            nodeScores.sort((a, b) => b.score - a.score);
+
+            const merged = [];
+            const used = new Set();
+            const mergeRadius = threshold * 1.8;
+
+            for (const { node, score } of nodeScores) {
+                if (used.has(node)) continue;
+                // 找到这个节点的所有未使用的邻居，计算加权中心
+                const cluster = [node];
+                used.add(node);
+                for (const other of denseNodes) {
+                    if (used.has(other)) continue;
+                    const dist = Math.sqrt(Math.pow(node.x - other.x, 2) + Math.pow(node.y - other.y, 2));
+                    if (dist < mergeRadius && other.type === node.type) {
+                        cluster.push(other);
+                        used.add(other);
                     }
                 }
+                // 用cluster的平均位置作为最终节点位置
+                const cx = Math.round(cluster.reduce((s, n) => s + n.x, 0) / cluster.length);
+                const cy = Math.round(cluster.reduce((s, n) => s + n.y, 0) / cluster.length);
+                merged.push({ ...node, x: cx, y: cy, clusterSize: cluster.length });
             }
 
             return merged;
