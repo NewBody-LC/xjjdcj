@@ -2611,33 +2611,65 @@
          */
         async function clickStartChallengeButton() {
             try {
-                // 获取游戏画面尺寸
-                const gameSize = await gameWebview.executeJavaScript(`(function() {
-                    const canvas = document.querySelector('canvas');
-                    if (canvas) {
-                        return { width: canvas.width, height: canvas.height };
+                // 先用像素扫描查找黄色挑战按钮位置
+                const image = await gameWebview.capturePage();
+                const size = image.getSize();
+                const bitmap = image.toBitmap();
+                const width = size.width;
+                const height = size.height;
+
+                // 扫描画面中央区域(20%-80% x, 30%-70% y)查找黄色按钮聚集区
+                const scanXStart = Math.floor(width * 0.2);
+                const scanXEnd = Math.floor(width * 0.8);
+                const scanYStart = Math.floor(height * 0.3);
+                const scanYEnd = Math.floor(height * 0.7);
+
+                let yellowClusterX = 0, yellowClusterY = 0, yellowCount = 0;
+                const gridSize = 8;
+
+                for (let y = scanYStart; y < scanYEnd; y += gridSize) {
+                    for (let x = scanXStart; x < scanXEnd; x += gridSize) {
+                        const idx = (y * width + x) * 4;
+                        const r = bitmap[idx], g = bitmap[idx + 1], b = bitmap[idx + 2];
+                        // 黄色按钮特征（千问VL校准：黄色挑战按钮）
+                        if (r > 180 && g > 140 && b < 100 && r > g) {
+                            yellowClusterX += x;
+                            yellowClusterY += y;
+                            yellowCount++;
+                        }
                     }
-                    return { width: window.innerWidth, height: window.innerHeight };
-                })()`);
+                }
 
-                // 从配置读取开始挑战按钮位置
-                const x = Math.round(ruinsConfig.startChallengeButton.xPercent * gameSize.width);
-                const y = Math.round(ruinsConfig.startChallengeButton.yPercent * gameSize.height);
+                let clickX, clickY;
+                if (yellowCount > 5) {
+                    // 找到黄色按钮聚集区域，点击其中心
+                    clickX = Math.round(yellowClusterX / yellowCount);
+                    clickY = Math.round(yellowClusterY / yellowCount);
+                    log(`像素扫描找到黄色挑战按钮，聚集${yellowCount}个点，中心: (${clickX}, ${clickY})`, 'info');
+                } else {
+                    // 回退到配置坐标
+                    const gameSize = await gameWebview.executeJavaScript(`(function() {
+                        const canvas = document.querySelector('canvas');
+                        if (canvas) { return { width: canvas.width, height: canvas.height }; }
+                        return { width: window.innerWidth, height: window.innerHeight };
+                    })()`);
+                    clickX = Math.round(ruinsConfig.startChallengeButton.xPercent * gameSize.width);
+                    clickY = Math.round(ruinsConfig.startChallengeButton.yPercent * gameSize.height);
+                    log(`未找到黄色按钮，使用配置坐标: (${clickX}, ${clickY})`, 'warning');
+                }
 
-                log(`点击开始挑战按钮，坐标: (${x}, ${y})`, 'info');
-
-                // 使用 Electron 原生 API 点击
-                const result = await ipcRenderer.invoke('simulate-mouse-click', 'game-webview', x, y);
+                log(`点击挑战按钮，坐标: (${clickX}, ${clickY})`, 'info');
+                const result = await ipcRenderer.invoke('simulate-mouse-click', 'game-webview', clickX, clickY);
 
                 if (result.success) {
-                    log('已点击开始挑战按钮', 'success');
+                    log('已点击挑战按钮', 'success');
                     return true;
                 } else {
-                    log('点击开始挑战按钮失败: ' + result.error, 'error');
+                    log('点击挑战按钮失败: ' + result.error, 'error');
                     return false;
                 }
             } catch (error) {
-                log('点击开始挑战按钮时出错: ' + error.message, 'error');
+                log('点击挑战按钮时出错: ' + error.message, 'error');
                 return false;
             }
         }
@@ -2907,8 +2939,10 @@
                 // 2. 检测当前状态
                 analysis.currentState = await detectGameState(bitmap, width, height);
 
-                // 3. 如果检测到节点且状态不是战斗/选择等，则覆盖为地图状态
-                if (analysis.nodes.length > 0 && analysis.currentState !== '战斗' && analysis.currentState !== '选择' && analysis.currentState !== '准备') {
+                // 3. 如果检测到节点且状态不是战斗/选择/准备等，则覆盖为地图状态
+                // 有弹窗时不覆盖，因为弹窗中的节点是背景地图透出的
+                if (analysis.nodes.length > 0 && !analysis.hasPopup &&
+                    analysis.currentState !== '战斗' && analysis.currentState !== '选择' && analysis.currentState !== '准备') {
                     analysis.currentState = '地图';
                     log(`检测到 ${analysis.nodes.length} 个节点，状态覆盖为: 地图`, 'info');
                 }
@@ -3898,8 +3932,8 @@
                     const r = bitmap[idx], g = bitmap[idx + 1], b = bitmap[idx + 2];
                     const brightness = (r + g + b) / 3;
 
-                    // 蓝灰色弹窗边框/背景
-                    if (r >= 80 && r <= 170 && g >= 80 && g <= 170 && b >= 150 && b <= 240) {
+                    // 蓝灰色弹窗边框/背景（千问VL校准：R70-170, G80-170, B120-240）
+                    if (r >= 60 && r <= 170 && g >= 80 && g <= 170 && b >= 120 && b <= 240) {
                         blueGrayPixels++;
                     }
                     // 深色遮罩
@@ -3919,14 +3953,11 @@
             const whiteRatio = whitePixels / totalPixels;
 
             // 弹窗特征：蓝灰色+深色遮罩 或 白色高亮+深色遮罩
-            const hasOverlay = darkRatio > 0.10;
-            const hasBlueGray = blueGrayRatio > 0.05;
+            const hasOverlay = darkRatio > 0.08;
+            const hasBlueGray = blueGrayRatio > 0.03;
             const hasWhiteOnDark = whiteRatio > 0.03 && darkRatio > 0.30;
 
             return hasOverlay && (hasBlueGray || hasWhiteOnDark);
-
-            // 弹窗：蓝灰色区域>5% 且 暗色区域>10%
-            return blueGrayRatio > 0.05 && darkRatio > 0.10;
         }
 
         /**
@@ -4359,10 +4390,11 @@
                         case '地图':
                             if (checkStopRequested()) return;
                             if (analysis.hasPopup) {
-                                // 有弹窗：说明刚点了节点，等待弹窗内容被其他状态分支处理
-                                log('地图上有弹窗，等待状态变化...', 'info');
+                                // 有弹窗：尝试点击挑战按钮
+                                log('地图上有弹窗，尝试点击挑战按钮...', 'info');
                                 consecutiveNoNodes = 0;
-                                await sleep(2000);
+                                await clickStartChallengeButton();
+                                await sleep(3000);
                             } else if (analysis.nodes.length > 0) {
                                 // 无弹窗且有节点：选择优先级最高的节点点击
                                 consecutiveNoNodes = 0;
@@ -4528,10 +4560,10 @@
                 const width = size.width;
                 const height = size.height;
 
-                // 检测屏幕中央偏下区域是否有黄色按钮
+                // 检测屏幕中央区域是否有黄色按钮（弹窗的挑战按钮在中央偏下）
                 const centerX = Math.floor(width * 0.5);
-                const centerY = Math.floor(height * 0.75);
-                const regionSize = 100;
+                const centerY = Math.floor(height * 0.50);
+                const regionSize = 150;
 
                 let yellowPixels = 0;
                 const sampleCount = 50;
@@ -4546,8 +4578,8 @@
                         const g = bitmap[idx + 1];
                         const b = bitmap[idx + 2];
 
-                        // 检测黄色（挑战按钮通常是黄色）
-                        if (r > 200 && g > 150 && b < 100) {
+                        // 检测黄色（挑战按钮通常是黄色，放宽阈值）
+                        if (r > 180 && g > 140 && b < 100) {
                             yellowPixels++;
                         }
                     }
