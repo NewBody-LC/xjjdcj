@@ -3261,18 +3261,6 @@
                 // 检测耗时
                 const detectionTime = Date.now() - startTime;
                 
-                // 如果置信度低且状态为未知，用千问VL做视觉识别兜底
-                if (detectedState === '未知' && confidence < 0.3) {
-                    try {
-                        const vlState = await detectStateWithVL(image);
-                        if (vlState && vlState !== '未知') {
-                            log(`千问VL兜底识别: ${vlState}`, 'info');
-                            detectedState = vlState;
-                            confidence = 0.85;
-                        }
-                    } catch (vlError) {}
-                }
-
                 return {
                     state: detectedState,
                     confidence: confidence,
@@ -3294,7 +3282,8 @@
         /**
          * 分析所有特征
          */
-        // 千问VL状态识别（低置信度兜底）
+        // [开发辅助] 千问VL状态识别 - 仅用于开发调试，不作为运行时兜底
+        // 使用方法：在控制台调用 detectStateWithVL(await gameWebview.capturePage())
         async function detectStateWithVL(nativeImage) {
             try {
                 const pngData = nativeImage.toPNG();
