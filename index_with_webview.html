@@ -730,10 +730,29 @@
                                 </div>
                             </div>
                         </div>
+                        <!-- 战斗确定按钮坐标 -->
+                        <div class="coord-config-item">
+                            <div class="coord-config-header">
+                                <span class="coord-config-name">战斗确定</span>
+                                <button class="function-button config" onclick="applySelectedToVictoryConfirm()">应用</button>
+                            </div>
+                            <div class="coord-config-values">
+                                <div class="coord-input-group">
+                                    <span class="coord-label">X:</span>
+                                    <input type="number" id="victory-confirm-x" value="50" min="0" max="100">
+                                    <span class="coord-unit">%</span>
+                                </div>
+                                <div class="coord-input-group">
+                                    <span class="coord-label">Y:</span>
+                                    <input type="number" id="victory-confirm-y" value="60" min="0" max="100">
+                                    <span class="coord-unit">%</span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
-            
+
             <!-- 英雄配置（默认折叠） -->
             <div class="collapsible-section collapsed" id="hero-config-section">
                 <div class="collapsible-header" onclick="toggleCollapsibleSection('hero-config-section')">
@@ -1086,6 +1105,8 @@
                 startChallengeButton: { xPercent: 0.48, yPercent: 0.57, description: "遗迹准备界面的'挑战'按钮位置" },
                 // 节点挑战按钮坐标（地图界面点击节点后的挑战按钮）
                 nodeChallengeButton: { xPercent: 0.50, yPercent: 0.72, description: "地图中节点挑战按钮位置" },
+                // 战斗完成确定按钮坐标
+                victoryConfirmButton: { xPercent: 0.50, yPercent: 0.60, description: "战斗完成确定按钮位置" },
                 // 首次英雄选择坐标（5个位置：射手、刺客、法师、牧师、战士）
                 heroSelection: {
                     archer: { xPercent: 0.15, yPercent: 0.50, name: "射手" },
@@ -1408,6 +1429,13 @@
                         ruinsConfig.nodeChallengeButton = config.nodeChallengeButton;
                         document.getElementById('node-challenge-x').value = Math.round(config.nodeChallengeButton.xPercent * 100);
                         document.getElementById('node-challenge-y').value = Math.round(config.nodeChallengeButton.yPercent * 100);
+                    }
+
+                    // 加载战斗确定按钮坐标
+                    if (config.victoryConfirmButton) {
+                        ruinsConfig.victoryConfirmButton = config.victoryConfirmButton;
+                        document.getElementById('victory-confirm-x').value = Math.round(config.victoryConfirmButton.xPercent * 100);
+                        document.getElementById('victory-confirm-y').value = Math.round(config.victoryConfirmButton.yPercent * 100);
                     }
 
                     // 加载首选英雄坐标
@@ -4764,12 +4792,13 @@
                 if (isVictoryScreen) {
                     log('检测到胜利完成界面，准备点击确定按钮...', 'info');
 
-                    // 用截图实际尺寸计算按钮坐标（而非canvas尺寸）
                     const image = await gameWebview.capturePage();
                     const size = image.getSize();
-                    // 确定按钮位置（千问VL校准）
-                    const confirmX = Math.round(size.width * 0.50);
-                    const confirmY = Math.round(size.height * 0.60);
+                    // 使用配置的确定按钮坐标
+                    const cfg = ruinsConfig.victoryConfirmButton || { xPercent: 0.50, yPercent: 0.60 };
+                    const confirmX = Math.round(cfg.xPercent * size.width);
+                    const confirmY = Math.round(cfg.yPercent * size.height);
+                    log(`点击确定按钮，坐标: (${confirmX}, ${confirmY}) [配置: ${cfg.xPercent},${cfg.yPercent}]`, 'info');
 
                     await clickAtPosition(confirmX, confirmY);
                     log('已点击确定按钮', 'success');
@@ -5555,6 +5584,31 @@
 
             } catch (error) {
                 log('应用坐标到节点挑战按钮时出错: ' + error.message, 'error');
+            }
+        }
+
+        function applySelectedToVictoryConfirm() {
+            try {
+                if (selectedX === 0 && selectedY === 0) {
+                    log('请先选择坐标位置', 'warning');
+                    return;
+                }
+                const gameElement = gameWebview;
+                const width = gameElement.clientWidth || 1920;
+                const height = gameElement.clientHeight || 1080;
+                const xPercent = Math.round((selectedX / width) * 100);
+                const yPercent = Math.round((selectedY / height) * 100);
+                document.getElementById('victory-confirm-x').value = xPercent;
+                document.getElementById('victory-confirm-y').value = yPercent;
+                ruinsConfig.victoryConfirmButton = {
+                    xPercent: xPercent / 100,
+                    yPercent: yPercent / 100,
+                    description: "战斗完成确定按钮位置"
+                };
+                saveCoordinatesToStorage();
+                log(`已将选择坐标应用到战斗确定按钮: (${xPercent}%, ${yPercent}%)`, 'success');
+            } catch (error) {
+                log('应用坐标到战斗确定按钮时出错: ' + error.message, 'error');
             }
         }
 
