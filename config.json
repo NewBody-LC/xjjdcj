@@ -30,8 +30,8 @@
       "description": "遗迹准备界面的'开始挑战'按钮位置"
     },
     "nodeChallengeButton": {
-      "xPercent": 0.50,
-      "yPercent": 0.72,
+      "xPercent": 0.474,
+      "yPercent": 0.571,
       "description": "地图中节点挑战按钮位置"
     },
     "heroSelection": {

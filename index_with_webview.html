@@ -2627,10 +2627,11 @@
                 const width = size.width;
                 const height = size.height;
 
-                // 直接使用配置文件中的节点挑战按钮坐标(0.50, 0.72)
-                let clickX = Math.round(0.50 * width);
-                let clickY = Math.round(0.72 * height);
-                log(`使用节点挑战按钮固定坐标: (${clickX}, ${clickY})`, 'info');
+                // 使用配置文件中的节点挑战按钮坐标
+                const cfg = ruinsConfig.nodeChallengeButton || ruinsConfig.startChallengeButton;
+                let clickX = Math.round(cfg.xPercent * width);
+                let clickY = Math.round(cfg.yPercent * height);
+                log(`使用节点挑战按钮坐标: (${clickX}, ${clickY}) [配置: ${cfg.xPercent},${cfg.yPercent}]`, 'info');
 
                 log(`点击挑战按钮，坐标: (${clickX}, ${clickY})`, 'info');
                 const result = await ipcRenderer.invoke('simulate-mouse-click', 'game-webview', clickX, clickY);
