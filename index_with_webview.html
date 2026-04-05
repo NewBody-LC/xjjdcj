@@ -2625,7 +2625,7 @@
                 const scanYEnd = Math.floor(height * 0.70);
 
                 let yellowClusterX = 0, yellowClusterY = 0, yellowCount = 0;
-                const gridSize = 6;
+                const gridSize = 4;
 
                 for (let y = scanYStart; y < scanYEnd; y += gridSize) {
                     for (let x = scanXStart; x < scanXEnd; x += gridSize) {
@@ -2635,17 +2635,17 @@
                         // 黄色按钮特征：R最高、高饱和度、B很低
                         if (r > 160 && g > 120 && b < 100 && (r - b) > 50) {
                             yellowClusterX += x;
-                            yellowClusterY += y;
+                            yellowClusterY += y * 2; // y方向加权，减少其他黄色元素干扰
                             yellowCount++;
                         }
                     }
                 }
 
                 let clickX, clickY;
-                if (yellowCount > 5) {
-                    // 找到黄色按钮聚集区域，点击其中心
+                if (yellowCount >= 20) {
+                    // 找到足够多的黄色按钮像素，点击加权中心
                     clickX = Math.round(yellowClusterX / yellowCount);
-                    clickY = Math.round(yellowClusterY / yellowCount);
+                    clickY = Math.round(yellowClusterY / (yellowCount * 2)); // 还原y加权
                     log(`像素扫描找到黄色挑战按钮，聚集${yellowCount}个点，中心: (${clickX}, ${clickY})`, 'info');
                 } else {
                     // 回退到配置坐标
@@ -3039,14 +3039,15 @@
                 log(`[采样像素] ${debugSamples.slice(0, 8).join(' | ')}`, 'info');
             }
 
+            // 状态检测优先级：战斗 > 选择 > 准备 > 弹窗 > 地图
             if (redRatio > 0.15) return '战斗';
-            else if (isPrepareScreen) return '准备';
-            // 选择状态检测优先于弹窗（战斗中的选择界面也有遮罩）
+            // 选择检测（精确卡片检测）在准备之前，战斗后的选择界面也有遮罩
             else if (detectSelectionState(bitmap, width, height) === '选择') return '选择';
+            else if (isPrepareScreen) return '准备';
             // 弹窗检测：如果有蓝灰色弹窗框，视为准备状态
             else if (detectPopupOverlay(bitmap, width, height)) return '准备';
             else if (yellowRatio > 0.02) return '地图';
-            else return detectSelectionState(bitmap, width, height);
+            else return '未知';
         }
 
         /**
@@ -3087,38 +3088,51 @@
          */
         function detectSelectionState(bitmap, width, height) {
             try {
-                const centerX = Math.floor(width * 0.5);
-                const centerY = Math.floor(height * 0.5);
-                const regionSize = 100;
+                // 选择界面特征：屏幕上半部分有多个明亮的卡片排列
+                // 扫描区域：x 20%-80%, y 15%-50%（上半部分）
+                const xStart = Math.floor(width * 0.20);
+                const xEnd = Math.floor(width * 0.80);
+                const yStart = Math.floor(height * 0.15);
+                const yEnd = Math.floor(height * 0.50);
+                const gridSize = 4;
 
-                let darkPixels = 0;
-                let cardPixels = 0;
-                const sampleCount = 60;
+                // 将扫描区域分成若干列（模拟卡片横向排列）
+                const colCount = 5;
+                const colWidth = Math.floor((xEnd - xStart) / colCount);
+                const brightInCol = new Array(colCount).fill(0);
+                const totalInCol = new Array(colCount).fill(0);
 
-                for (let i = 0; i < sampleCount; i++) {
-                    const x = centerX + Math.floor((Math.random() - 0.5) * regionSize * 2);
-                    const y = centerY + Math.floor((Math.random() - 0.5) * regionSize * 2);
-
-                    if (x >= 0 && x < width && y >= 0 && y < height) {
+                for (let y = yStart; y < yEnd; y += gridSize) {
+                    for (let x = xStart; x < xEnd; x += gridSize) {
                         const idx = (y * width + x) * 4;
                         const p = getPixel(bitmap, idx);
                         const r = p.r, g = p.g, b = p.b;
                         const brightness = (r + g + b) / 3;
+                        const max = Math.max(r, g, b);
+                        const min = Math.min(r, g, b);
+                        const saturation = max - min;
 
-                        if (brightness < 80) {
-                            darkPixels++;
+                        // 明亮且有色彩（非纯白/纯灰）的像素视为卡片特征
+                        const isBright = brightness > 120 && saturation > 30;
+                        if (isBright) {
+                            const col = Math.min(colCount - 1, Math.floor((x - xStart) / colWidth));
+                            brightInCol[col]++;
                         }
-
-                        if (brightness > 200 && r > 200 && g > 200 && b > 200) {
-                            cardPixels++;
-                        }
+                        const col = Math.min(colCount - 1, Math.floor((x - xStart) / colWidth));
+                        totalInCol[col]++;
                     }
                 }
 
-                const darkRatio = darkPixels / sampleCount;
-                const cardRatio = cardPixels / sampleCount;
+                // 计算每列的明亮像素比例
+                const brightRatios = brightInCol.map((b, i) => totalInCol[i] > 0 ? b / totalInCol[i] : 0);
+                // 统计有多少列的明亮比例超过阈值（说明该列有卡片）
+                const cardThreshold = 0.15;
+                const cardColumns = brightRatios.filter(r => r > cardThreshold).length;
 
-                if (darkRatio > 0.3 || cardRatio > 0.2) {
+                log(`[选择检测] 列明亮比例: [${brightRatios.map(r => (r*100).toFixed(0)+'%').join(', ')}] 卡片列数: ${cardColumns}/5`, 'info');
+
+                // 至少3列有明亮卡片才判定为选择界面
+                if (cardColumns >= 3) {
                     return '选择';
                 }
 
@@ -4623,54 +4637,43 @@
          */
         async function handleBattle() {
             // 战斗状态轮询检测
-            // 每60秒检测一次战斗状态，每30秒检测一次装备选择
+            // 每15秒检测一次战斗状态，避免阻塞主流程太久
             const maxBattleTime = 600000; // 最大战斗时间10分钟
-            const battleCheckInterval = 60000; // 每60秒检测战斗状态
-            const selectionCheckInterval = 30000; // 每30秒检测装备选择
+            const checkInterval = 15000; // 每15秒检测一次
             let battleTime = 0;
-            let lastSelectionCheck = 0;
-
-            let lastBattleCheck = 0;
 
             log('进入战斗状态，开始轮询检测...', 'info');
 
             while (battleTime < maxBattleTime) {
-                // 等待一段时间
-                await sleep(10000); // 每10秒检查一次
-                battleTime += 10000;
+                await sleep(checkInterval);
+                battleTime += checkInterval;
 
-                // 检查停止请求
                 if (checkStopRequested()) {
                     log('用户请求停止，退出战斗等待', 'info');
                     return false;
                 }
 
-                // 每30秒检测一次装备选择
-                if (battleTime - lastSelectionCheck >= selectionCheckInterval) {
-                    lastSelectionCheck = battleTime;
-                    log(`战斗进行中，已等待 ${battleTime/1000} 秒，检测是否有装备选择...`, 'info');
-
-                    const analysis = await analyzeRuinsMap();
-                    if (analysis && analysis.currentState === '选择') {
-                        log('检测到装备/角色选择界面，开始选择...', 'info');
-                        await handleSelection();
-                        log('装备选择完成，继续等待战斗结束...', 'info');
-                    }
+                const analysis = await analyzeRuinsMap();
+                if (!analysis) {
+                    log('战斗中分析地图失败，继续等待...', 'warning');
+                    continue;
                 }
 
-                // 每60秒检测一次战斗状态
-                if (battleTime - lastBattleCheck >= battleCheckInterval) {
-                    lastBattleCheck = battleTime;
-                    log(`战斗进行中，已等待 ${battleTime/1000} 秒，检测战斗状态...`, 'info');
-
-                    const analysis = await analyzeRuinsMap();
-                    if (analysis && analysis.currentState !== '战斗') {
-                        log('战斗已结束', 'success');
-                        // 检测并处理胜利完成界面
-                        await handleVictoryComplete();
-                        return true;
-                    }
+                // 检测战斗是否结束（状态不再是战斗）
+                if (analysis.currentState !== '战斗') {
+                    log(`战斗已结束，当前状态: ${analysis.currentState}`, 'success');
+                    // 如果战斗结束直接跳转到胜利完成，由主循环的case处理
+                    // 如果是选择状态（战斗中选装备），也由主循环处理
+                    return true;
                 }
+
+                // 战斗中检测到选择界面（装备选择等），主循环会处理
+                if (analysis.currentState === '选择') {
+                    log('战斗中检测到选择界面，退出战斗等待交由主循环处理', 'info');
+                    return true;
+                }
+
+                log(`战斗进行中，已等待 ${battleTime/1000} 秒...`, 'info');
             }
 
             log('战斗时间超过最大限制，强制结束等待', 'warning');
