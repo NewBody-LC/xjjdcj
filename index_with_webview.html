@@ -3863,56 +3863,91 @@
                 }
             }
 
-            // 弹窗框通常占中央区域10%以上（地图上没有这么大的亮色区域）
-            return totalPixels > 0 && (brightPixels / totalPixels) > 0.10;
+            // 弹窗框通常占中央区域20%以上
+            return totalPixels > 0 && (brightPixels / totalPixels) > 0.20;
         }
 
+        /**
+         * 检测地图上的节点
+         * 策略：节点是六边形，局部亮度高于周围背景
+         * 1. 计算每个像素的局部对比度（与周围20px区域比较）
+         * 2. 只保留对比度高的像素（节点比背景亮）
+         * 3. 根据颜色分类节点类型
+         * 4. 密度聚类去重
+         */
         function detectNodes(bitmap, width, height) {
-            const nodes = [];
-            const gridSize = 8; // 更小的采样网格，提高精度
-
-            // 排除画面边缘（顶部标题栏、底部按钮栏）
+            const gridSize = 10;
             const yStart = Math.floor(height * 0.08);
             const yEnd = Math.floor(height * 0.88);
             const xStart = Math.floor(width * 0.03);
             const xEnd = Math.floor(width * 0.97);
 
+            // 第一步：计算每个网格点的局部平均亮度（周围区域）
+            const ringRadius = 15; // 对比度的环形区域半径
+            const contrastMap = {}; // key: "x,y" -> contrast value
+
             for (let y = yStart; y < yEnd; y += gridSize) {
                 for (let x = xStart; x < xEnd; x += gridSize) {
+                    const centerIdx = (y * width + x) * 4;
+                    const centerBright = (bitmap[centerIdx] + bitmap[centerIdx+1] + bitmap[centerIdx+2]) / 3;
+
+                    // 计算环形区域的平均亮度（排除中心5px）
+                    let ringSum = 0, ringCount = 0;
+                    for (let ry = -ringRadius; ry <= ringRadius; ry += 4) {
+                        for (let rx = -ringRadius; rx <= ringRadius; rx += 4) {
+                            if (Math.abs(rx) <= 4 && Math.abs(ry) <= 4) continue; // 跳过中心
+                            const dist = Math.sqrt(rx*rx + ry*ry);
+                            if (dist > ringRadius * 0.5 && dist <= ringRadius) {
+                                const px = x + rx, py = y + ry;
+                                if (px >= 0 && px < width && py >= 0 && py < height) {
+                                    const pIdx = (py * width + px) * 4;
+                                    ringSum += (bitmap[pIdx] + bitmap[pIdx+1] + bitmap[pIdx+2]) / 3;
+                                    ringCount++;
+                                }
+                            }
+                        }
+                    }
+                    const ringBright = ringCount > 0 ? ringSum / ringCount : 0;
+                    const contrast = centerBright - ringBright; // 正值=中心比周围亮
+                    contrastMap[x + ',' + y] = { contrast, bright: centerBright };
+                }
+            }
+
+            // 第二步：只保留对比度>阈值的像素，并分类颜色
+            const candidates = [];
+            const minContrast = 15; // 节点至少比周围亮15个亮度单位
+
+            for (let y = yStart; y < yEnd; y += gridSize) {
+                for (let x = xStart; x < xEnd; x += gridSize) {
+                    const key = x + ',' + y;
+                    const info = contrastMap[key];
+                    if (!info || info.contrast < minContrast) continue;
+
                     const idx = (y * width + x) * 4;
-                    const r = bitmap[idx];
-                    const g = bitmap[idx + 1];
-                    const b = bitmap[idx + 2];
-                    const brightness = (r + g + b) / 3;
+                    const r = bitmap[idx], g = bitmap[idx+1], b = bitmap[idx+2];
 
-                    // 排除纯黑/极暗背景像素
-                    if (brightness < 50) continue;
+                    // 颜色分类
+                    let type = 'unknown', color = 'unknown';
+                    if (r > g && r > b && b < 150) {
+                        type = 'normal'; color = 'yellow'; // 暖色/黄色
+                    } else if (r > g && r > b && g < 120) {
+                        type = 'elite'; color = 'red'; // 红色/深暖色
+                    } else if (b > r && b > g && r > 40) {
+                        type = 'event'; color = 'blue'; // 蓝色
+                    } else if (b > r && b > g && r <= 40) {
+                        type = 'boss'; color = 'purple'; // 紫色（暗但B高）
+                    } else if (g > r && g > b) {
+                        type = 'shop'; color = 'green'; // 绿色
+                    }
 
-                    // 识别黄色节点（普通战斗）- 暖色调：R最高，B<150，R>100
-                    if (r > 100 && r > g && b < 150 && r > 80) {
-                        nodes.push({ x: x, y: y, type: 'normal', color: 'yellow' });
-                    }
-                    // 识别红色节点（精英战斗）- 深暖色：R>B且G较低
-                    else if (r > 70 && g < 110 && b < 155 && r > g && r > b - 20) {
-                        nodes.push({ x: x, y: y, type: 'elite', color: 'red' });
-                    }
-                    // 识别紫色节点（BOSS战）- B最高，R中等
-                    else if (b > 80 && r > 60 && b > g && b > r - 20) {
-                        nodes.push({ x: x, y: y, type: 'boss', color: 'purple' });
-                    }
-                    // 识别蓝色节点（随机事件）- B通道突出
-                    else if (b > 70 && b > r && b > g) {
-                        nodes.push({ x: x, y: y, type: 'event', color: 'blue' });
-                    }
-                    // 识别绿色节点（商店）- B通道最高（实际绿色节点B>R≈G）
-                    else if (b > 100 && b > r + 5 && b > g) {
-                        nodes.push({ x: x, y: y, type: 'shop', color: 'green' });
+                    if (type !== 'unknown') {
+                        candidates.push({ x, y, type, color, contrast: info.contrast });
                     }
                 }
             }
 
-            // 合并相近的节点（去重）
-            return mergeNearbyNodes(nodes, 50);
+            // 第三步：密度聚类去重（同类型需要>=2邻居）
+            return mergeNearbyNodes(candidates, 50);
         }
 
         /**
