@@ -2632,8 +2632,8 @@
                         const idx = (y * width + x) * 4;
                         const p = getPixel(bitmap, idx);
                         const r = p.r, g = p.g, b = p.b;
-                        // 黄色按钮特征：R最高、高饱和度、B很低（排除图标等其他黄色元素）
-                        if (r > 200 && g > 150 && b < 80 && (r - b) > 100) {
+                        // 黄色按钮特征：R最高、高饱和度、B很低
+                        if (r > 160 && g > 120 && b < 100 && (r - b) > 50) {
                             yellowClusterX += x;
                             yellowClusterY += y;
                             yellowCount++;
@@ -3041,6 +3041,8 @@
 
             if (redRatio > 0.15) return '战斗';
             else if (isPrepareScreen) return '准备';
+            // 选择状态检测优先于弹窗（战斗中的选择界面也有遮罩）
+            else if (detectSelectionState(bitmap, width, height) === '选择') return '选择';
             // 弹窗检测：如果有蓝灰色弹窗框，视为准备状态
             else if (detectPopupOverlay(bitmap, width, height)) return '准备';
             else if (yellowRatio > 0.02) return '地图';
