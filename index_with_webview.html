@@ -4450,6 +4450,7 @@
                             if (checkStopRequested()) return;
                             log('检测到胜利完成界面，点击确定...', 'info');
                             await handleVictoryComplete();
+                            await sleep(2000);
                             break;
 
                         case '商店':
@@ -4457,6 +4458,21 @@
                             log('检测到商店界面，关闭商店...', 'info');
                             await closeShopIfPresent();
                             await sleep(1000);
+                            break;
+
+                        case '失败':
+                            if (checkStopRequested()) return;
+                            log('检测到战斗失败界面，点击返回...', 'info');
+                            // 失败界面通常有返回/重试按钮，点击屏幕中央偏下
+                            const failSize = await gameWebview.executeJavaScript(`(function() {
+                                const canvas = document.querySelector('canvas');
+                                if (canvas) {
+                                    return { width: canvas.width, height: canvas.height };
+                                }
+                                return { width: window.innerWidth, height: window.innerHeight };
+                            })()`);
+                            await clickAtPosition(failSize.width * 0.5, failSize.height * 0.85);
+                            await sleep(2000);
                             break;
 
                         case '事件':
@@ -5075,8 +5091,9 @@
                 await clickAtPosition(x, y);
                 await sleep(2000);
 
-                // 点击确认按钮（屏幕底部中央）
-                await clickAtPosition(gameSize.width * 0.5, gameSize.height * 0.9);
+                // 点击确认/开始按钮（屏幕底部偏上，约80%高度）
+                // Y=0.9太低可能点不到，调整为0.78
+                await clickAtPosition(gameSize.width * 0.5, gameSize.height * 0.78);
                 await sleep(2000);
 
                 log('英雄选择完成', 'success');
