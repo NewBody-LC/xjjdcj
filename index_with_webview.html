@@ -1507,6 +1507,7 @@
                 appConfig.ruins.goToRuinsButton = ruinsConfig.goToRuinsButton;
                 appConfig.ruins.startChallengeButton = ruinsConfig.startChallengeButton;
                 appConfig.ruins.nodeChallengeButton = ruinsConfig.nodeChallengeButton;
+                appConfig.ruins.victoryConfirmButton = ruinsConfig.victoryConfirmButton;
                 appConfig.ruins.heroSelection = ruinsConfig.heroSelection;
                 appConfig.ruins.weeklyGiftButton = ruinsConfig.weeklyGiftButton;
                 appConfig.ruins.benefitClaimButton = ruinsConfig.benefitClaimButton;
@@ -3260,6 +3261,18 @@
                 // 检测耗时
                 const detectionTime = Date.now() - startTime;
                 
+                // 如果置信度低且状态为未知，用千问VL做视觉识别兜底
+                if (detectedState === '未知' && confidence < 0.3) {
+                    try {
+                        const vlState = await detectStateWithVL(image);
+                        if (vlState && vlState !== '未知') {
+                            log(`千问VL兜底识别: ${vlState}`, 'info');
+                            detectedState = vlState;
+                            confidence = 0.85;
+                        }
+                    } catch (vlError) {}
+                }
+
                 return {
                     state: detectedState,
                     confidence: confidence,
@@ -3281,6 +3294,39 @@
         /**
          * 分析所有特征
          */
+        // 千问VL状态识别（低置信度兜底）
+        async function detectStateWithVL(nativeImage) {
+            try {
+                const pngData = nativeImage.toPNG();
+                const base64 = pngData.toString('base64');
+                const response = await fetch('https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer sk-80dec1652c1d428b9d42651298a4de0e'
+                    },
+                    body: JSON.stringify({
+                        model: 'qwen-vl-max-latest',
+                        messages: [{
+                            role: 'user',
+                            content: [
+                                { type: 'image_url', image_url: { url: 'data:image/png;base64,' + base64 } },
+                                { type: 'text', text: '这是游戏截图。当前是什么界面？只回答一个词：地图/准备/选择/战斗/胜利完成/失败/商店/事件/弹窗/未知' }
+                            ]
+                        }],
+                        max_tokens: 20
+                    })
+                });
+                const data = await response.json();
+                const vlResult = data.choices[0].message.content.trim();
+                // 映射VL返回值到内部状态
+                const stateMap = { '地图': '地图', '准备': '准备', '选择': '选择', '战斗': '战斗', '胜利完成': '胜利完成', '失败': '失败', '商店': '商店', '事件': '事件', '弹窗': '准备', '未知': '未知' };
+                return stateMap[vlResult] || '未知';
+            } catch (e) {
+                return '未知';
+            }
+        }
+
         async function analyzeAllFeatures(bitmap, width, height) {
             const config = STATE_DETECTION_CONFIG;
             const features = {
