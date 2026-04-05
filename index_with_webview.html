@@ -4441,6 +4441,8 @@
                 let steps = 0;
                 let consecutiveNoNodes = 0;
                 const maxConsecutiveNoNodes = 3;
+                let consecutiveSelections = 0;
+                const maxConsecutiveSelections = 3;
 
                 while (steps < maxSteps) {
                     // 首先检查是否请求停止
@@ -4484,6 +4486,7 @@
                             } else if (analysis.nodes.length > 0) {
                                 // 无弹窗且有节点：选择优先级最高的节点点击
                                 consecutiveNoNodes = 0;
+                                consecutiveSelections = 0;
                                 const targetNode = selectBestNode(analysis.nodes);
                                 log(`发现 ${analysis.nodes.length} 个节点，选择: ${targetNode.type} (${targetNode.x}, ${targetNode.y})`, 'info');
 
@@ -4515,18 +4518,31 @@
                             log('检测到战斗状态，等待战斗完成...', 'info');
                             await handleBattle();
                             consecutiveNoNodes = 0;
+                            consecutiveSelections = 0;
                             break;
 
                         case '选择':
                             if (checkStopRequested()) return;
-                            log('检测到选择界面，自动选择...', 'info');
-                            await handleSelection();
+                            consecutiveSelections++;
+                            if (consecutiveSelections > maxConsecutiveSelections) {
+                                log(`连续${consecutiveSelections}次选择界面，尝试点击确认按钮退出...`, 'warning');
+                                const cfg = ruinsConfig.victoryConfirmButton || { xPercent: 0.50, yPercent: 0.60 };
+                                const img = await gameWebview.capturePage();
+                                const sz = img.getSize();
+                                await clickAtPosition(Math.round(cfg.xPercent * sz.width), Math.round(cfg.yPercent * sz.height));
+                                consecutiveSelections = 0;
+                                await sleep(2000);
+                            } else {
+                                log('检测到选择界面，自动选择...', 'info');
+                                await handleSelection();
+                            }
                             break;
 
                         case '胜利完成':
                             if (checkStopRequested()) return;
                             log('检测到胜利完成界面，点击确定...', 'info');
                             await handleVictoryComplete();
+                            consecutiveSelections = 0;
                             await sleep(2000);
                             break;
 
