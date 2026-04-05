@@ -1083,7 +1083,7 @@
                 // 前往遗迹按钮坐标（古代遗迹页面右下角）
                 goToRuinsButton: { xPercent: 0.50, yPercent: 0.84, description: "'前往遗迹'按钮位置" },
                 // 开始挑战按钮坐标
-                startChallengeButton: { xPercent: 0.82, yPercent: 0.88, description: "遗迹准备界面的'开始挑战'按钮位置" },
+                startChallengeButton: { xPercent: 0.48, yPercent: 0.57, description: "遗迹准备界面的'挑战'按钮位置" },
                 // 节点挑战按钮坐标（地图界面点击节点后的挑战按钮）
                 nodeChallengeButton: { xPercent: 0.50, yPercent: 0.72, description: "地图中节点挑战按钮位置" },
                 // 首次英雄选择坐标（5个位置：射手、刺客、法师、牧师、战士）
@@ -1762,10 +1762,20 @@
                 // 同时在控制台输出
                 console.log(`${timeStr} [${type.toUpperCase()}] ${message}`);
 
-                // 写入JT/日志.log文件
+                // 写入JT/日志.log文件（启动时清空旧日志）
                 try {
                     const fs = require('fs');
                     const path = require('path');
+                    if (!window._logCleared) {
+                        const logPath = path.join(__dirname, 'JT', '日志.log');
+                        fs.writeFileSync(logPath, '');
+                        // 同时清理旧截图
+                        try {
+                            const screenshots = fs.readdirSync(path.join(__dirname, 'JT')).filter(f => f.startsWith('screenshot_') && f.endsWith('.png'));
+                            screenshots.forEach(f => fs.unlinkSync(path.join(__dirname, 'JT', f)));
+                        } catch(e3) {}
+                        window._logCleared = true;
+                    }
                     const logLine = `${timeStr}${message}\n`;
                     fs.appendFileSync(path.join(__dirname, 'JT', '日志.log'), logLine);
                 } catch (e2) {}
@@ -2648,15 +2658,10 @@
                     clickY = Math.round(yellowClusterY / (yellowCount * 2)); // 还原y加权
                     log(`像素扫描找到黄色挑战按钮，聚集${yellowCount}个点，中心: (${clickX}, ${clickY})`, 'info');
                 } else {
-                    // 回退到配置坐标
-                    const gameSize = await gameWebview.executeJavaScript(`(function() {
-                        const canvas = document.querySelector('canvas');
-                        if (canvas) { return { width: canvas.width, height: canvas.height }; }
-                        return { width: window.innerWidth, height: window.innerHeight };
-                    })()`);
-                    clickX = Math.round(ruinsConfig.startChallengeButton.xPercent * gameSize.width);
-                    clickY = Math.round(ruinsConfig.startChallengeButton.yPercent * gameSize.height);
-                    log(`未找到黄色按钮，使用配置坐标: (${clickX}, ${clickY})`, 'warning');
+                    // 回退到固定坐标（千问VL校准）
+                    clickX = Math.round(0.48 * width);
+                    clickY = Math.round(0.57 * height);
+                    log(`未找到黄色按钮，使用固定坐标: (${clickX}, ${clickY})`, 'warning');
                 }
 
                 log(`点击挑战按钮，坐标: (${clickX}, ${clickY})`, 'info');
