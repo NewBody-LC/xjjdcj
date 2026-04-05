@@ -4764,18 +4764,12 @@
                 if (isVictoryScreen) {
                     log('检测到胜利完成界面，准备点击确定按钮...', 'info');
 
-                    // 获取游戏画面尺寸
-                    const gameSize = await gameWebview.executeJavaScript(`(function() {
-                        const canvas = document.querySelector('canvas');
-                        if (canvas) {
-                            return { width: canvas.width, height: canvas.height };
-                        }
-                        return { width: window.innerWidth, height: window.innerHeight };
-                    })()`);
-
-                    // 确定按钮通常在屏幕底部中央偏下位置（黄色按钮）
-                    const confirmX = Math.round(gameSize.width * 0.5);
-                    const confirmY = Math.round(gameSize.height * 0.85);
+                    // 用截图实际尺寸计算按钮坐标（而非canvas尺寸）
+                    const image = await gameWebview.capturePage();
+                    const size = image.getSize();
+                    // 确定按钮位置（千问VL校准）
+                    const confirmX = Math.round(size.width * 0.50);
+                    const confirmY = Math.round(size.height * 0.60);
 
                     await clickAtPosition(confirmX, confirmY);
                     log('已点击确定按钮', 'success');
@@ -4837,12 +4831,13 @@
 
                 const hasVictoryTitle = pinkRedPixels / titleSampleCount > 0.3;
 
-                // 检测2：屏幕底部中央是否有黄色按钮（确定按钮）
+                // 检测2：屏幕中下方是否有黄色/金色按钮（确定按钮）
+                // 千问VL校准：确定按钮在画面约60%高度处
                 const buttonRegion = {
-                    x: Math.floor(width * 0.35),
-                    y: Math.floor(height * 0.78),
-                    width: Math.floor(width * 0.3),
-                    height: Math.floor(height * 0.12)
+                    x: Math.floor(width * 0.30),
+                    y: Math.floor(height * 0.52),
+                    width: Math.floor(width * 0.40),
+                    height: Math.floor(height * 0.15)
                 };
 
                 let yellowPixels = 0;
@@ -4855,8 +4850,8 @@
                     const p = getPixel(bitmap, idx);
                     const r = p.r, g = p.g, b = p.b;
 
-                    // 检测黄色（确定按钮）
-                    if (r > 220 && g > 180 && b < 100) {
+                    // 检测黄色/金色（确定按钮，RGB约255,215,0）
+                    if (r > 200 && g > 160 && b < 120) {
                         yellowPixels++;
                     }
                 }
