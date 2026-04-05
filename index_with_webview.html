@@ -1711,13 +1711,21 @@
                     }
                 `);
 
-                // 自动触发一键遗迹（开发调试用，延迟20秒等游戏完全加载）
+                // 自动触发一键遗迹（开发调试用）
                 setTimeout(() => {
-                    log('[自动调试] 20秒后自动触发一键遗迹...', 'info');
-                    const btn = document.getElementById('startRuinsExploreBtn');
-                    if (btn) btn.click();
-                    else log('[自动调试] 未找到一键遗迹按钮', 'warning');
-                }, 20000);
+                    log('[自动调试] 自动触发一键遗迹...', 'info');
+                    // 用所有可能的方式找到并点击按钮
+                    const btn = document.getElementById('startRuinsExploreBtn')
+                        || document.querySelector('[onclick*="startSmartRuinsExplore"]')
+                        || document.querySelector('button');
+                    if (btn) {
+                        btn.click();
+                        log('[自动调试] 已点击按钮', 'success');
+                    } else {
+                        log('[自动调试] 未找到按钮，尝试直接调用函数', 'warning');
+                        if (typeof startSmartRuinsExplore === 'function') startSmartRuinsExplore();
+                    }
+                }, 30000);
             });
             
             // 监听webview加载失败事件
@@ -3971,7 +3979,7 @@
 
             // 第二步：只保留对比度>阈值的像素，并分类颜色
             const candidates = [];
-            const minContrast = 35; // 节点至少比周围亮35个亮度单位（排除噪声）
+            const minContrast = 25; // 节点至少比周围亮25个亮度单位
 
             for (let y = yStart; y < yEnd; y += gridSize) {
                 for (let x = xStart; x < xEnd; x += gridSize) {
