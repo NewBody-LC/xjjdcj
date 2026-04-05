@@ -2196,9 +2196,8 @@
                 for (let y = 0; y < height; y += 20) {
                     for (let x = 0; x < width; x += 20) {
                         const idx = (y * width + x) * 4;
-                        const r = bitmap[idx];
-                        const g = bitmap[idx + 1];
-                        const b = bitmap[idx + 2];
+                        const p = getPixel(bitmap, idx);
+                        const r = p.r, g = p.g, b = p.b;
 
                         // 计算亮度
                         const brightness = (r + g + b) / 3;
@@ -2630,7 +2629,8 @@
                 for (let y = scanYStart; y < scanYEnd; y += gridSize) {
                     for (let x = scanXStart; x < scanXEnd; x += gridSize) {
                         const idx = (y * width + x) * 4;
-                        const r = bitmap[idx], g = bitmap[idx + 1], b = bitmap[idx + 2];
+                        const p = getPixel(bitmap, idx);
+                        const r = p.r, g = p.g, b = p.b;
                         // 黄色按钮特征（千问VL校准：黄色挑战按钮）
                         if (r > 180 && g > 140 && b < 100 && r > g) {
                             yellowClusterX += x;
@@ -3005,9 +3005,8 @@
                 const x = Math.floor(Math.random() * width);
                 const y = Math.floor(Math.random() * height);
                 const idx = (y * width + x) * 4;
-                const r = bitmap[idx];
-                const g = bitmap[idx + 1];
-                const b = bitmap[idx + 2];
+                const p = getPixel(bitmap, idx);
+                const r = p.r, g = p.g, b = p.b;
                 // 检测红色（血条）
                 if (r > 150 && g < 80 && b < 80) redPixels++;
                 // 检测黄色/橙色（黄线/节点）- 宽泛暖色调
@@ -3025,7 +3024,8 @@
                 for (let x = Math.floor(width * 0.05); x < Math.floor(width * 0.95); x += 4) {
                     lowerTotal++;
                     const idx = (y * width + x) * 4;
-                    const r = bitmap[idx], g = bitmap[idx + 1], b = bitmap[idx + 2];
+                    const p = getPixel(bitmap, idx);
+                    const r = p.r, g = p.g, b = p.b;
                     const max = Math.max(r, g, b), min = Math.min(r, g, b);
                     const brightness = (r + g + b) / 3;
                     // 颜色分类
@@ -3049,7 +3049,8 @@
                 if (y === Math.floor(height * 0.65) || y === Math.floor(height * 0.80) || y === Math.floor(height * 0.90)) {
                     for (const xp of [0.2, 0.4, 0.5, 0.6, 0.8]) {
                         const si = (y * width + Math.floor(width * xp)) * 4;
-                        debugSamples.push(`(${Math.floor(width*xp)},${y}): R=${bitmap[si]} G=${bitmap[si+1]} B=${bitmap[si+2]}`);
+                        const sp = getPixel(bitmap, si);
+                        debugSamples.push(`(${Math.floor(width*xp)},${y}): R=${sp.r} G=${sp.g} B=${sp.b}`);
                     }
                 }
             }
@@ -3126,9 +3127,8 @@
 
                     if (x >= 0 && x < width && y >= 0 && y < height) {
                         const idx = (y * width + x) * 4;
-                        const r = bitmap[idx];
-                        const g = bitmap[idx + 1];
-                        const b = bitmap[idx + 2];
+                        const p = getPixel(bitmap, idx);
+                        const r = p.r, g = p.g, b = p.b;
                         const brightness = (r + g + b) / 3;
 
                         if (brightness < 80) {
@@ -3264,9 +3264,8 @@
                 const x = Math.floor(Math.random() * width);
                 const y = Math.floor(Math.random() * height);
                 const idx = (y * width + x) * 4;
-                const r = bitmap[idx];
-                const g = bitmap[idx + 1];
-                const b = bitmap[idx + 2];
+                const p = getPixel(bitmap, idx);
+                const r = p.r, g = p.g, b = p.b;
 
                 // 检测各种颜色
                 if (matchColor(r, g, b, colors.yellow)) colorCounts.yellow++;
@@ -3344,9 +3343,8 @@
 
                 if (x >= 0 && x < width && y >= 0 && y < height) {
                     const idx = (y * width + x) * 4;
-                    const r = bitmap[idx];
-                    const g = bitmap[idx + 1];
-                    const b = bitmap[idx + 2];
+                    const p = getPixel(bitmap, idx);
+                    const r = p.r, g = p.g, b = p.b;
 
                     if (matchColor(r, g, b, colors.yellow)) colorCounts.yellow++;
                     if (matchColor(r, g, b, colors.red)) colorCounts.red++;
@@ -3425,9 +3423,8 @@
             for (let y = yStart; y < yEnd; y += 2) {
                 for (let x = xStart; x < xEnd; x += 2) {
                     const idx = (y * width + x) * 4;
-                    const r = bitmap[idx];
-                    const g = bitmap[idx + 1];
-                    const b = bitmap[idx + 2];
+                    const p = getPixel(bitmap, idx);
+                    const r = p.r, g = p.g, b = p.b;
 
                     if (matchColor(r, g, b, colors.red)) {
                         redPixels++;
@@ -3461,9 +3458,8 @@
             for (let y = yStart; y < yEnd; y += 3) {
                 for (let x = xStart; x < xEnd; x += 3) {
                     const idx = (y * width + x) * 4;
-                    const r = bitmap[idx];
-                    const g = bitmap[idx + 1];
-                    const b = bitmap[idx + 2];
+                    const p = getPixel(bitmap, idx);
+                    const r = p.r, g = p.g, b = p.b;
 
                     if (matchColor(r, g, b, colors.yellow)) yellowPixels++;
                     totalPixels++;
@@ -3496,9 +3492,8 @@
             for (let y = yStart; y < yEnd; y += 2) {
                 for (let x = xStart; x < xEnd; x += 2) {
                     const idx = (y * width + x) * 4;
-                    const r = bitmap[idx];
-                    const g = bitmap[idx + 1];
-                    const b = bitmap[idx + 2];
+                    const p = getPixel(bitmap, idx);
+                    const r = p.r, g = p.g, b = p.b;
 
                     if (matchColor(r, g, b, colors.yellow)) yellowPixels++;
                     totalPixels++;
@@ -3531,9 +3526,8 @@
             for (let y = yStart; y < yEnd; y += 2) {
                 for (let x = xStart; x < xEnd; x += 2) {
                     const idx = (y * width + x) * 4;
-                    const r = bitmap[idx];
-                    const g = bitmap[idx + 1];
-                    const b = bitmap[idx + 2];
+                    const p = getPixel(bitmap, idx);
+                    const r = p.r, g = p.g, b = p.b;
 
                     if (matchColor(r, g, b, colors.red)) redPixels++;
                     totalPixels++;
@@ -3566,9 +3560,8 @@
             for (let y = yStart; y < yEnd; y += 4) {
                 for (let x = xStart; x < xEnd; x += 4) {
                     const idx = (y * width + x) * 4;
-                    const r = bitmap[idx];
-                    const g = bitmap[idx + 1];
-                    const b = bitmap[idx + 2];
+                    const p = getPixel(bitmap, idx);
+                    const r = p.r, g = p.g, b = p.b;
 
                     if (matchColor(r, g, b, colors.white)) whitePixels++;
                     if (matchColor(r, g, b, colors.dark)) darkPixels++;
@@ -3604,9 +3597,8 @@
             for (let y = yStart; y < yEnd; y += 2) {
                 for (let x = xStart; x < xEnd; x += 2) {
                     const idx = (y * width + x) * 4;
-                    const r = bitmap[idx];
-                    const g = bitmap[idx + 1];
-                    const b = bitmap[idx + 2];
+                    const p = getPixel(bitmap, idx);
+                    const r = p.r, g = p.g, b = p.b;
 
                     if (matchColor(r, g, b, colors.orange)) orangePixels++;
                     if (matchColor(r, g, b, colors.pink)) pinkPixels++;
@@ -3639,9 +3631,8 @@
                 const x = Math.floor(Math.random() * width);
                 const y = Math.floor(Math.random() * height);
                 const idx = (y * width + x) * 4;
-                const r = bitmap[idx];
-                const g = bitmap[idx + 1];
-                const b = bitmap[idx + 2];
+                const p = getPixel(bitmap, idx);
+                const r = p.r, g = p.g, b = p.b;
 
                 if (matchColor(r, g, b, colors.yellow)) yellowNodes++;
                 if (matchColor(r, g, b, colors.blue)) blueNodes++;
@@ -4272,9 +4263,8 @@
                     const y = Math.floor(point.y);
                     if (x >= 0 && x < width && y >= 0 && y < height) {
                         const idx = (y * width + x) * 4;
-                        const r = bitmap[idx];
-                        const g = bitmap[idx + 1];
-                        const b = bitmap[idx + 2];
+                        const p = getPixel(bitmap, idx);
+                        const r = p.r, g = p.g, b = p.b;
 
                         // 检测红色（难度数字通常是红色）
                         if (r > 180 && g < 100 && b < 100) {
@@ -4380,9 +4370,8 @@
             while (true) {
                 if (x >= 0 && x < width && y >= 0 && y < height) {
                     const idx = (Math.floor(y) * width + Math.floor(x)) * 4;
-                    const r = bitmap[idx];
-                    const g = bitmap[idx + 1];
-                    const b = bitmap[idx + 2];
+                    const p = getPixel(bitmap, idx);
+                    const r = p.r, g = p.g, b = p.b;
 
                     // 识别黄色黄线 - 宽泛暖色调
                     if (r > 140 && g > 80 && b < 120 && r > b) {
@@ -4640,9 +4629,8 @@
 
                     if (x >= 0 && x < width && y >= 0 && y < height) {
                         const idx = (y * width + x) * 4;
-                        const r = bitmap[idx];
-                        const g = bitmap[idx + 1];
-                        const b = bitmap[idx + 2];
+                        const p = getPixel(bitmap, idx);
+                        const r = p.r, g = p.g, b = p.b;
 
                         // 检测黄色（挑战按钮通常是黄色，放宽阈值）
                         if (r > 180 && g > 140 && b < 100) {
@@ -4828,9 +4816,8 @@
                     const x = titleRegion.x + Math.floor(Math.random() * titleRegion.width);
                     const y = titleRegion.y + Math.floor(Math.random() * titleRegion.height);
                     const idx = (y * width + x) * 4;
-                    const r = bitmap[idx];
-                    const g = bitmap[idx + 1];
-                    const b = bitmap[idx + 2];
+                    const p = getPixel(bitmap, idx);
+                    const r = p.r, g = p.g, b = p.b;
 
                     // 检测粉红色/红色（胜利标题背景）
                     if (r > 200 && g > 80 && g < 150 && b > 100 && b < 180) {
@@ -4855,9 +4842,8 @@
                     const x = buttonRegion.x + Math.floor(Math.random() * buttonRegion.width);
                     const y = buttonRegion.y + Math.floor(Math.random() * buttonRegion.height);
                     const idx = (y * width + x) * 4;
-                    const r = bitmap[idx];
-                    const g = bitmap[idx + 1];
-                    const b = bitmap[idx + 2];
+                    const p = getPixel(bitmap, idx);
+                    const r = p.r, g = p.g, b = p.b;
 
                     // 检测黄色（确定按钮）
                     if (r > 220 && g > 180 && b < 100) {
@@ -4882,9 +4868,8 @@
                     const x = panelRegion.x + Math.floor(Math.random() * panelRegion.width);
                     const y = panelRegion.y + Math.floor(Math.random() * panelRegion.height);
                     const idx = (y * width + x) * 4;
-                    const r = bitmap[idx];
-                    const g = bitmap[idx + 1];
-                    const b = bitmap[idx + 2];
+                    const p = getPixel(bitmap, idx);
+                    const r = p.r, g = p.g, b = p.b;
 
                     // 检测白色/浅灰色（信息面板）
                     if (r > 230 && g > 230 && b > 230) {
@@ -4961,9 +4946,8 @@
                     const x = titleRegion.x + Math.floor(Math.random() * titleRegion.width);
                     const y = titleRegion.y + Math.floor(Math.random() * titleRegion.height);
                     const idx = (y * width + x) * 4;
-                    const r = bitmap[idx];
-                    const g = bitmap[idx + 1];
-                    const b = bitmap[idx + 2];
+                    const p = getPixel(bitmap, idx);
+                    const r = p.r, g = p.g, b = p.b;
 
                     // 检测橙色/棕色（标题栏背景）
                     // 橙色特征：R高，G中等，B低
@@ -4991,9 +4975,8 @@
                     const x = blueBarRegion.x + stepX * i + stepX / 2;
                     const y = blueBarRegion.y + blueBarRegion.height / 2;
                     const idx = (Math.floor(y) * width + Math.floor(x)) * 4;
-                    const r = bitmap[idx];
-                    const g = bitmap[idx + 1];
-                    const b = bitmap[idx + 2];
+                    const p = getPixel(bitmap, idx);
+                    const r = p.r, g = p.g, b = p.b;
 
                     // 检测蓝色（英雄选择标题栏）
                     // 蓝色特征：B高，R和G较低
@@ -5019,9 +5002,8 @@
                     const x = cardRegion.x + Math.floor(Math.random() * cardRegion.width);
                     const y = cardRegion.y + Math.floor(Math.random() * cardRegion.height);
                     const idx = (y * width + x) * 4;
-                    const r = bitmap[idx];
-                    const g = bitmap[idx + 1];
-                    const b = bitmap[idx + 2];
+                    const p = getPixel(bitmap, idx);
+                    const r = p.r, g = p.g, b = p.b;
 
                     // 检测灰色卡片背景（英雄卡片）
                     // 灰色特征：RGB相近，亮度中等
@@ -5049,9 +5031,8 @@
                     const x = equipBarRegion.x + Math.floor(Math.random() * equipBarRegion.width);
                     const y = equipBarRegion.y + Math.floor(Math.random() * equipBarRegion.height);
                     const idx = (y * width + x) * 4;
-                    const r = bitmap[idx];
-                    const g = bitmap[idx + 1];
-                    const b = bitmap[idx + 2];
+                    const p = getPixel(bitmap, idx);
+                    const r = p.r, g = p.g, b = p.b;
 
                     // 检测彩色像素（装备图标）
                     const colorDiff = Math.max(r, g, b) - Math.min(r, g, b);
@@ -5084,9 +5065,8 @@
                     const y = Math.floor(pos.y);
                     if (x >= 0 && x < width && y >= 0 && y < height) {
                         const idx = (y * width + x) * 4;
-                        const r = bitmap[idx];
-                        const g = bitmap[idx + 1];
-                        const b = bitmap[idx + 2];
+                        const p = getPixel(bitmap, idx);
+                        const r = p.r, g = p.g, b = p.b;
 
                         // 检测是否有卡片（高对比度区域，不是背景色）
                         const brightness = (r + g + b) / 3;
@@ -6262,9 +6242,8 @@
             for (let y = startY; y < endY; y += 10) {
                 for (let x = startX; x < endX; x += 10) {
                     const idx = (y * width + x) * 4;
-                    const r = bitmap[idx];
-                    const g = bitmap[idx + 1];
-                    const b = bitmap[idx + 2];
+                    const p = getPixel(bitmap, idx);
+                    const r = p.r, g = p.g, b = p.b;
                     
                     // 计算亮度
                     const brightness = (r + g + b) / 3;
@@ -6309,9 +6288,8 @@
             for (let y = startY; y < endY; y += 5) {
                 for (let x = startX; x < endX; x += 5) {
                     const idx = (y * width + x) * 4;
-                    const r = bitmap[idx];
-                    const g = bitmap[idx + 1];
-                    const b = bitmap[idx + 2];
+                    const p = getPixel(bitmap, idx);
+                    const r = p.r, g = p.g, b = p.b;
                     
                     // 检测彩色像素（非灰度）
                     if (Math.abs(r - g) > 25 || Math.abs(g - b) > 25 || Math.abs(r - b) > 25) {
@@ -6348,9 +6326,8 @@
                 const x = Math.floor(Math.random() * width);
                 const y = Math.floor(Math.random() * height);
                 const idx = (y * width + x) * 4;
-                const r = bitmap[idx];
-                const g = bitmap[idx + 1];
-                const b = bitmap[idx + 2];
+                const p = getPixel(bitmap, idx);
+                const r = p.r, g = p.g, b = p.b;
                 
                 // 检测非灰度像素（颜色变化）
                 if (Math.abs(r - g) > 35 || Math.abs(g - b) > 35 || Math.abs(r - b) > 35) {
